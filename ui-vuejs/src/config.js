@@ -1,4 +1,5 @@
-const apiBase = import.meta.env.VITE_API_DOTNET || 'http://localhost:5000'
+const apiBaseDotnet = import.meta.env.VITE_API_DOTNET
+const apiBaseNodejs = import.meta.env.VITE_API_NODEJS
 
 export const CONFIG = {
   DELAY_TIME: 800,
@@ -17,10 +18,18 @@ export const CONFIG = {
     NonBacktracking:         { Value: 1 << 10, Name: 'Non Backtracking' },
     ShowCaptures:            { Value: 1 << 15, Name: 'Show Captures' },
   },
+  ENGINES: {
+    DOTNET: { Name: '.Net',    Key: 'DOTNET' },
+    NODEJS: { Name: 'Node.js', Key: 'NODEJS' },
+  },
   API: {
     DOTNET: {
-      INFO:  apiBase + '/api/version',
-      REGEX: apiBase + '/api/regex'
+      INFO:  apiBaseDotnet + '/api/version',
+      REGEX: apiBaseDotnet + '/api/regex'
+    },
+    NODEJS: {
+      INFO:  apiBaseNodejs + '/api/version',
+      REGEX: apiBaseNodejs + '/api/regex'
     }
   }
 }

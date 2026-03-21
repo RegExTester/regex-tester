@@ -11,10 +11,20 @@
             <i class="btn btn-icon btn-engine-info fa pull-right" aria-hidden="true"
                :class="engineIconClass"></i>
           </div>
-          <div class="dropdown position-static pull-right">
-            <button class="btn btn-secondary dropdown-toggle bg-transparent disabled" type="button">
-              .Net
+          <div class="dropdown pull-right">
+            <button class="btn btn-sm btn-outline-light dropdown-toggle" type="button"
+              data-bs-toggle="dropdown" aria-expanded="false">
+              {{ CONFIG.ENGINES[selectedEngine].Name }}
             </button>
+            <ul class="dropdown-menu dropdown-menu-end">
+              <li v-for="eng in CONFIG.ENGINES" :key="eng.Key">
+                <button type="button" class="dropdown-item"
+                  :class="{ active: selectedEngine === eng.Key }"
+                  @click="selectedEngine = eng.Key; onEngineChange()">
+                  {{ eng.Name }}
+                </button>
+              </li>
+            </ul>
           </div>
         </div>
       </div>
@@ -205,6 +215,7 @@ const route  = useRoute()
 const router = useRouter()
 
 // State
+const selectedEngine  = ref('DOTNET')
 const engine          = ref('')
 const pattern         = ref('')
 const text            = ref('')
@@ -241,11 +252,21 @@ function toggleMatch(i) {
   expandMatchResult.value = { ...expandMatchResult.value, [i]: !expandMatchResult.value[i] }
 }
 
+function apiConfig() {
+  return CONFIG.API[selectedEngine.value]
+}
+
 function warmUpApiServer() {
-  fetch(CONFIG.API.DOTNET.INFO)
+  engine.value = ''
+  fetch(apiConfig().INFO)
     .then(r => r.json())
-    .then(data => { engine.value = data.framework })
+    .then(data => { engine.value = data.frameworkDescription || data.framework })
     .catch(() => { engine.value = 'offline' })
+}
+
+function onEngineChange() {
+  warmUpApiServer()
+  delaySubmit()
 }
 
 function delaySubmit(time) {
@@ -277,7 +298,7 @@ function submit() {
 
   updateUrl(url)
 
-  fetch(CONFIG.API.DOTNET.REGEX, {
+  fetch(apiConfig().REGEX, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
