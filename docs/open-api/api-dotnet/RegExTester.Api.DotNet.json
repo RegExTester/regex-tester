@@ -1,0 +1,357 @@
+{
+  "openapi": "3.1.1",
+  "info": {
+    "title": "RegEx Tester API",
+    "description": "REST API for testing .NET regular expressions. Accepts a pattern, input text, and option flags; returns all matches with their groups and captures. Supports URL-based sharing via Base64Url-encoded query parameters.",
+    "contact": {
+      "name": "RegEx Tester",
+      "url": "https://regextester.github.io/"
+    },
+    "version": "v1"
+  },
+  "paths": {
+    "/": {
+      "get": {
+        "tags": [
+          "Home"
+        ],
+        "summary": "Redirect to the Angular frontend.",
+        "responses": {
+          "302": {
+            "description": "HTTP 302 redirect to `https://regextester.github.io/`.",
+            "content": {
+              "application/json": { }
+            }
+          }
+        }
+      }
+    },
+    "/api/version": {
+      "get": {
+        "tags": [
+          "Home"
+        ],
+        "summary": "Return runtime version information for the host.",
+        "description": "Response is cached for 24 hours. Includes a `debug` flag when built in DEBUG configuration.",
+        "responses": {
+          "200": {
+            "description": "Version information.",
+            "content": {
+              "application/json": { }
+            }
+          }
+        }
+      }
+    },
+    "/api/regex": {
+      "post": {
+        "tags": [
+          "RegEx"
+        ],
+        "summary": "Run a regular expression and return all matches.",
+        "description": "Applies the provided regex pattern to the input text using the specified option flags.\r\nAll string fields are Base64Url-encoded by the Angular frontend before submission but\r\nthe API itself accepts plain UTF-8 JSON strings.\r\n\r\n**Timeout:** The regex engine enforces a 15-second match timeout; the HTTP request\r\nhas a 5-second middleware timeout. If either is exceeded an error message is returned\r\nin the `error` field rather than throwing an HTTP error.",
+        "requestBody": {
+          "description": "Request cancellation token.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Input"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Input"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/Input"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Regex executed successfully; inspect `error` field for pattern errors.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegexResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request body failed model validation (e.g. pattern &gt; 512 chars).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "CaptureResult": {
+        "type": "object",
+        "properties": {
+          "index": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "description": "Zero-based character offset where this capture starts.",
+            "format": "int32"
+          },
+          "length": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "description": "Length of this capture in characters.",
+            "format": "int32"
+          },
+          "value": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "The captured substring."
+          }
+        },
+        "description": "An individual capture produced by a group that matches multiple times."
+      },
+      "GroupResult": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Group name or number (e.g. `\"1\"`, `\"word\"`)."
+          },
+          "index": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "description": "Zero-based character offset where the group match starts.",
+            "format": "int32"
+          },
+          "length": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "description": "Length of the group match in characters.",
+            "format": "int32"
+          },
+          "value": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "The substring matched by this group."
+          },
+          "captures": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/CaptureResult"
+            },
+            "description": "All individual captures of this group.\r\nOnly populated when the `ShowCaptures` flag (32768) is set in `options`."
+          }
+        },
+        "description": "A single capturing group within a match."
+      },
+      "Input": {
+        "type": "object",
+        "properties": {
+          "options": {
+            "description": "Bitwise combination of RegExTesterOptions flags.\r\nUse `0` for no options.\r\nThe custom `ShowCaptures` flag (32768) causes capture collections to be\r\nincluded in each match and group; it is stripped before being passed to the\r\n.NET `RegexOptions` enum.",
+            "$ref": "#/components/schemas/RegExTesterOptions"
+          },
+          "pattern": {
+            "maxLength": 512,
+            "minLength": 0,
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "The regular expression pattern to evaluate. Maximum 512 characters."
+          },
+          "text": {
+            "maxLength": 1024,
+            "minLength": 0,
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "The input text to search. Maximum 1024 characters."
+          },
+          "replace": {
+            "maxLength": 1024,
+            "minLength": 0,
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Optional replacement string. When supplied, the response will include a `replace`\r\nfield containing the result of calling `Regex.Replace(text, replace)`.\r\nMaximum 1024 characters."
+          }
+        },
+        "description": "Request body for the regex matching endpoint."
+      },
+      "MatchResult": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Match name (always `\"0\"` for the whole-match group)."
+          },
+          "index": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "description": "Zero-based character offset where the match starts.",
+            "format": "int32"
+          },
+          "length": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "description": "Length of the matched substring in characters.",
+            "format": "int32"
+          },
+          "value": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "The matched substring."
+          },
+          "groups": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/GroupResult"
+            },
+            "description": "Named and numbered capturing groups within this match."
+          },
+          "captures": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/CaptureResult"
+            },
+            "description": "All captures of the whole match.\r\nOnly populated when the `ShowCaptures` flag (32768) is set in `options`."
+          }
+        },
+        "description": "A single regex match within the input text."
+      },
+      "ProblemDetails": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "title": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "status": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "detail": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "instance": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "RegexResult": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Error message when the pattern is invalid or the match times out; `null` on success."
+          },
+          "replace": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "String produced by applying the `replace` pattern to the input text.\r\n`null` when no replace pattern was supplied."
+          },
+          "matches": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/MatchResult"
+            },
+            "description": "All matches found in the input text. Empty array when there are no matches."
+          }
+        },
+        "description": "Top-level result returned by the regex matching endpoint."
+      },
+      "RegExTesterOptions": {
+        "type": "integer",
+        "description": "Bitwise flags that control regex matching behaviour.\r\nValues 0–1024 map directly to RegexOptions.\r\n`ShowCaptures` (32768) is a custom flag handled by the API before forwarding to .NET."
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "Home"
+    },
+    {
+      "name": "RegEx"
+    }
+  ]
+}

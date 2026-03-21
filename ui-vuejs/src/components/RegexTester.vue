@@ -9,7 +9,8 @@
         <div class="col p-0">
           <div class="engine-info" :data-tooltip="engineTooltip">
             <i class="btn btn-icon btn-engine-info fa pull-right" aria-hidden="true"
-               :class="engineIconClass"></i>
+               :class="engineIconClass"
+               :style="engine === 'offline' ? 'color: #ff6b6b' : engine !== '' ? 'color: #69db7c' : ''"></i>
           </div>
           <div class="dropdown pull-right">
             <button class="btn btn-sm btn-outline-light dropdown-toggle" type="button"
@@ -256,11 +257,31 @@ function apiConfig() {
   return CONFIG.API[selectedEngine.value]
 }
 
+const versionCache = {}
+const VERSION_CACHE_TTL = 10 * 60 * 1000 // 10 minutes
+
 function warmUpApiServer() {
+  const key = selectedEngine.value
+  const cached = versionCache[key]
+  if (cached && Date.now() - cached.at < VERSION_CACHE_TTL) {
+    engine.value = cached.value
+    return
+  }
+
+  const previous = engine.value
   engine.value = ''
   fetch(apiConfig().INFO)
-    .then(r => r.json())
-    .then(data => { engine.value = data.frameworkDescription || data.framework })
+    .then(r => {
+      if (r.status === 304) {
+        engine.value = previous || 'online'
+        return
+      }
+      if (!r.ok) throw new Error(r.statusText)
+      return r.json().then(data => {
+        engine.value = data.frameworkDescription || data.framework
+        versionCache[key] = { value: engine.value, at: Date.now() }
+      })
+    })
     .catch(() => { engine.value = 'offline' })
 }
 

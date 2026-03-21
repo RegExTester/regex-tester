@@ -10,12 +10,17 @@ const app = express();
 const port = process.env.PORT || 5100;
 
 // CORS
-const allowedOrigins = process.env.ALLOW_CORS
-  ? process.env.ALLOW_CORS.split(',')
-  : ['http://localhost:5173', 'https://regextester.github.io'];
+const extraOrigins = process.env.ALLOW_CORS ? process.env.ALLOW_CORS.split(',') : [];
+const allowedOrigins = ['https://regextester.github.io', ...extraOrigins];
 
 app.use(cors({
-  origin: process.env.NODE_ENV === 'development' ? '*' : allowedOrigins,
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin) || /^https?:\/\/localhost(:\d+)?$/.test(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   methods: ['GET', 'POST', 'OPTIONS'],
   allowedHeaders: ['Content-Type'],
 }));
