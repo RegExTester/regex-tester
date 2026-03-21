@@ -5,6 +5,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using RegExTester.Api.DotNet.Services;
+using Scalar.AspNetCore;
 using System;
 
 namespace RegExTester.Api.DotNet
@@ -32,6 +33,22 @@ namespace RegExTester.Api.DotNet
             services.AddMvc().AddJsonOptions(options =>
             {
                 options.JsonSerializerOptions.DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull;
+            });
+
+            services.AddOpenApi(options =>
+            {
+                options.AddDocumentTransformer((document, context, cancellationToken) =>
+                {
+                    document.Info.Title = "RegEx Tester API";
+                    document.Info.Version = "v1";
+                    document.Info.Description = "REST API for testing .NET regular expressions. Accepts a pattern, input text, and option flags; returns all matches with their groups and captures. Supports URL-based sharing via Base64Url-encoded query parameters.";
+                    document.Info.Contact = new Microsoft.OpenApi.OpenApiContact
+                    {
+                        Name = "RegEx Tester",
+                        Url = new Uri("https://regextester.github.io/")
+                    };
+                    return System.Threading.Tasks.Task.CompletedTask;
+                });
             });
 
             services.AddTransient<IRegExProcessor, RegExProcessor>();
@@ -68,6 +85,8 @@ namespace RegExTester.Api.DotNet
 
             app.UseEndpoints(endpoints =>
             {
+                endpoints.MapOpenApi();
+                endpoints.MapScalarApiReference();
                 endpoints.MapControllers();
             });
         }

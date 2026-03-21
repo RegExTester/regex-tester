@@ -7,7 +7,10 @@ using System.Threading.Tasks;
 
 namespace RegExTester.Api.DotNet.Controllers
 {
+    /// <summary>Executes .NET regular expressions against supplied input text.</summary>
+    [ApiController]
     [Route("api/regex")]
+    [Produces("application/json")]
     public class RegExController : Controller
     {
         public IRegExProcessor RegExProcessor { get; set; }
@@ -19,8 +22,24 @@ namespace RegExTester.Api.DotNet.Controllers
             this.TelemetryService = telemetryService;
         }
 
-        // POST api/regex
+        /// <summary>Run a regular expression and return all matches.</summary>
+        /// <remarks>
+        /// Applies the provided regex pattern to the input text using the specified option flags.
+        /// All string fields are Base64Url-encoded by the Angular frontend before submission but
+        /// the API itself accepts plain UTF-8 JSON strings.
+        ///
+        /// **Timeout:** The regex engine enforces a 15-second match timeout; the HTTP request
+        /// has a 5-second middleware timeout. If either is exceeded an error message is returned
+        /// in the `error` field rather than throwing an HTTP error.
+        /// </remarks>
+        /// <param name="model">Pattern, text, optional replacement string, and regex option flags.</param>
+        /// <param name="cancellationToken">Request cancellation token.</param>
+        /// <returns>Match results including groups and (optionally) captures.</returns>
+        /// <response code="200">Regex executed successfully; inspect <c>error</c> field for pattern errors.</response>
+        /// <response code="400">Request body failed model validation (e.g. pattern &gt; 512 chars).</response>
         [HttpPost]
+        [ProducesResponseType(typeof(RegexResult), 200)]
+        [ProducesResponseType(400)]
         public async Task<ActionResult> Post([FromBody] Input model, CancellationToken cancellationToken)
         {
             if (!ModelState.IsValid)
