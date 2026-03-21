@@ -56,6 +56,19 @@ label.form-check-label {
   cursor: pointer;
 }
 
+code.option-flag {
+  display: inline-block;
+  min-width: 1.4em;
+  text-align: center;
+  padding: 0 0.3em;
+  font-size: 0.85em;
+  font-weight: bold;
+  color: #337ab7;
+  background-color: #e9ecef;
+  border-radius: 0.25rem;
+  border: 1px solid #ced4da;
+}
+
 div.card.nav-card {
   border: none;
 }

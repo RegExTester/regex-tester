@@ -64,8 +64,13 @@
         <!-- Options sidebar (desktop) -->
         <div class="col-md-3 d-md-block d-none">
           <h6>Options
-            <a title="Regular expression options"
+            <a v-if="selectedEngine === 'DOTNET'" title="Regular expression options"
                href="https://learn.microsoft.com/en-us/dotnet/standard/base-types/regular-expression-options"
+               class="external-link" target="_blank">
+              <i class="fa fa-external-link" aria-hidden="true"></i>
+            </a>
+            <a v-else-if="selectedEngine === 'NODEJS'" title="Regular expression reference"
+               href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/RegExp"
                class="external-link" target="_blank">
               <i class="fa fa-external-link" aria-hidden="true"></i>
             </a>
@@ -73,7 +78,8 @@
           <div class="form-check" v-for="option in options" :key="option.value">
             <label class="form-check-label">
               <input type="checkbox" class="form-check-input"
-                v-model="option.checked" @change="delaySubmit()"> {{ option.name }}
+                v-model="option.checked" @change="delaySubmit()">
+              <code v-if="option.flag" class="option-flag">{{ option.flag }}</code> {{ option.name }}
             </label>
           </div>
         </div>
@@ -189,7 +195,8 @@
           <div class="form-check" v-for="option in options" :key="'m-' + option.value">
             <label class="form-check-label">
               <input type="checkbox" class="form-check-input"
-                v-model="option.checked" @change="delaySubmit(500)"> {{ option.name }}
+                v-model="option.checked" @change="delaySubmit(500)">
+              <code v-if="option.flag" class="option-flag">{{ option.flag }}</code> {{ option.name }}
             </label>
           </div>
         </div>
@@ -227,11 +234,18 @@ const activeTab       = ref('matches')
 const result          = ref({})
 const expandMatchResult = ref({})
 
-const options = reactive(
-  Object.values(CONFIG.REGEX_OPTIONS).map(opt => ({
-    name: opt.Name, value: opt.Value, checked: false
+function engineConfig(engineKey) {
+  return CONFIG.ENGINES[engineKey ?? selectedEngine.value]
+}
+
+const options = ref([])
+
+function rebuildOptions(engineKey, bitmask) {
+  const src = engineConfig(engineKey).REGEX_OPTIONS
+  options.value = Object.values(src).map(opt => ({
+    name: opt.Name, value: opt.Value, flag: opt.Flag || null, checked: (bitmask & opt.Value) === opt.Value
   }))
-)
+}
 
 let debounceTimer = null
 
@@ -254,7 +268,7 @@ function toggleMatch(i) {
 }
 
 function apiConfig() {
-  return CONFIG.API[selectedEngine.value]
+  return engineConfig().API
 }
 
 const versionCache = {}
@@ -286,6 +300,7 @@ function warmUpApiServer() {
 }
 
 function onEngineChange() {
+  applyDefaultOptions(selectedEngine.value)
   warmUpApiServer()
   delaySubmit()
 }
@@ -314,7 +329,7 @@ function submit() {
 
   const encodedPattern  = encodeBase64(pattern.value)
   const encodedText     = encodeBase64(text.value)
-  const optionsBitmask  = options.reduce((sum, opt) => sum + (opt.checked ? opt.value : 0), 0)
+  const optionsBitmask  = options.value.reduce((sum, opt) => sum + (opt.checked ? opt.value : 0), 0)
   const engineIndex     = CONFIG.ENGINES[selectedEngine.value].Index
   const url = `/${encodedPattern}/${encodedText}/${optionsBitmask}/${engineIndex}`
 
@@ -363,17 +378,23 @@ function engineKeyByIndex(index) {
   return entry ? entry.Key : CONFIG.DEFAULT_ENGINE
 }
 
-function initFromRoute() {
-  const params       = route.params
-  const optionsValue = isNaN(+params.options) ? CONFIG.DEFAULT_OPTIONS : +params.options
-  const engineParam  = isNaN(+params.engine) ? 0 : +params.engine
+function applyDefaultOptions(engineKey) {
+  const defaults = engineConfig(engineKey).DEFAULT_OPTIONS ?? 0
+  rebuildOptions(engineKey, defaults)
+}
 
-  pattern.value       = decodeBase64(params.pattern || '')
-  text.value          = decodeBase64(params.text    || '')
+function initFromRoute() {
+  const params      = route.params
+  const engineParam = isNaN(+params.engine) ? 0 : +params.engine
+
   selectedEngine.value = engineKeyByIndex(engineParam)
-  options.forEach(opt => {
-    opt.checked = (optionsValue & opt.value) === opt.value
-  })
+
+  const defaultOpts = engineConfig(selectedEngine.value).DEFAULT_OPTIONS ?? 0
+  const optionsValue = isNaN(+params.options) ? defaultOpts : +params.options
+
+  pattern.value = decodeBase64(params.pattern || '')
+  text.value    = decodeBase64(params.text    || '')
+  rebuildOptions(selectedEngine.value, optionsValue)
 
   submit()
 }
