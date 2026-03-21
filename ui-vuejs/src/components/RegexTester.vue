@@ -294,7 +294,8 @@ function submit() {
   const encodedPattern  = encodeBase64(pattern.value)
   const encodedText     = encodeBase64(text.value)
   const optionsBitmask  = options.reduce((sum, opt) => sum + (opt.checked ? opt.value : 0), 0)
-  const url = `/${encodedPattern}/${encodedText}/${optionsBitmask}`
+  const engineIndex     = CONFIG.ENGINES[selectedEngine.value].Index
+  const url = `/${encodedPattern}/${encodedText}/${optionsBitmask}/${engineIndex}`
 
   updateUrl(url)
 
@@ -329,18 +330,26 @@ function submit() {
 
 function updateUrl(url) {
   router.replace(url)
+  document.title = `RegEx Tester (${CONFIG.ENGINES[selectedEngine.value].Name}) ||| ${pattern.value} ||| ${text.value}`
   const ogDesc = document.querySelector('meta[property="og:description"]')
   const ogUrl  = document.querySelector('meta[property="og:url"]')
   if (ogDesc) ogDesc.setAttribute('content', 'Pattern: ' + pattern.value)
   if (ogUrl)  ogUrl.setAttribute('content', url)
 }
 
+function engineKeyByIndex(index) {
+  const entry = Object.values(CONFIG.ENGINES).find(e => e.Index === index)
+  return entry ? entry.Key : CONFIG.DEFAULT_ENGINE
+}
+
 function initFromRoute() {
   const params       = route.params
   const optionsValue = isNaN(+params.options) ? CONFIG.DEFAULT_OPTIONS : +params.options
+  const engineParam  = isNaN(+params.engine) ? 0 : +params.engine
 
-  pattern.value = decodeBase64(params.pattern || '')
-  text.value    = decodeBase64(params.text    || '')
+  pattern.value       = decodeBase64(params.pattern || '')
+  text.value          = decodeBase64(params.text    || '')
+  selectedEngine.value = engineKeyByIndex(engineParam)
   options.forEach(opt => {
     opt.checked = (optionsValue & opt.value) === opt.value
   })
@@ -349,7 +358,7 @@ function initFromRoute() {
 }
 
 onMounted(() => {
-  warmUpApiServer()
   initFromRoute()
+  warmUpApiServer()
 })
 </script>

@@ -18,9 +18,10 @@ export const CONFIG = {
     NonBacktracking:         { Value: 1 << 10, Name: 'Non Backtracking' },
     ShowCaptures:            { Value: 1 << 15, Name: 'Show Captures' },
   },
+  DEFAULT_ENGINE: 'DOTNET',
   ENGINES: {
-    DOTNET: { Name: '.Net',    Key: 'DOTNET' },
-    NODEJS: { Name: 'Node.js', Key: 'NODEJS' },
+    DOTNET: { Name: '.Net',    Key: 'DOTNET', Index: 0 },
+    NODEJS: { Name: 'Node.js', Key: 'NODEJS', Index: 1 },
   },
   API: {
     DOTNET: {
