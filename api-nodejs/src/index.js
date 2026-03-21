@@ -25,7 +25,7 @@ app.use(cors({
   allowedHeaders: ['Content-Type'],
 }));
 
-app.use(express.json());
+app.use(express.json({ limit: '1kb' }));
 
 // Request timeout (5 seconds)
 app.use('/api/regex', requestTimeout(5000));

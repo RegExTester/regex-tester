@@ -14,7 +14,11 @@ namespace RegExTester.Api.DotNet
             Host.CreateDefaultBuilder(args)
                 .ConfigureWebHostDefaults(webBuilder =>
                 {
-                    webBuilder.UseStartup<Startup>();
+                    webBuilder.UseStartup<Startup>()
+                        .ConfigureKestrel(options =>
+                        {
+                            options.Limits.MaxRequestBodySize = 1024; // 1 KB
+                        });
                 });
     }
 }
