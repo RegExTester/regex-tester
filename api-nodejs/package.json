@@ -1,0 +1,19 @@
+{
+  "name": "regex-tester-api-nodejs",
+  "version": "1.0.0",
+  "description": "REST API for testing JavaScript regular expressions",
+  "type": "module",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^5.1.0",
+    "js-yaml": "^4.1.1",
+    "swagger-ui-express": "^5.0.1"
+  }
+}
