@@ -5,6 +5,7 @@ import { homeController } from './controllers/homeController.js';
 import { regexController } from './controllers/regexController.js';
 import { requestTimeout } from './middleware/requestTimeout.js';
 import { openApiDocument } from './openapi.js';
+import { telemetryService } from './services/telemetryService.js';
 
 const app = express();
 const port = process.env.PORT || 5100;
@@ -40,6 +41,13 @@ app.use('/scalar/v1', swaggerUi.serve, swaggerUi.setup(openApiDocument, {
 app.get('/', homeController.redirect);
 app.get('/api/version', homeController.version);
 app.post('/api/regex', regexController.match);
+
+// Initialize telemetry (optional — no-op if env vars are missing)
+telemetryService.initCosmos(
+  process.env.COSMOS_CONNECTION_STRING,
+  process.env.COSMOS_DATABASE || 'regex-tester-db',
+  process.env.COSMOS_CONTAINER || 'telemetry',
+).catch(err => console.warn('Cosmos DB init failed:', err.message));
 
 app.listen(port, () => {
   console.log(`RegEx Tester API (Node.js) listening on http://localhost:${port}`);

@@ -1,4 +1,5 @@
 import { RegexProcessor } from '../services/regexProcessor.js';
+import { telemetryService } from '../services/telemetryService.js';
 
 export const regexController = {
   /**
@@ -61,6 +62,7 @@ export const regexController = {
     }
 
     const result = RegexProcessor.match(pattern, text, replace, options ?? 0);
+    telemetryService.sendTelemetry(req, { pattern, text, replace, options }).catch(() => {});
     res.json(result);
   },
 };
