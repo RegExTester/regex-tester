@@ -232,7 +232,7 @@ Java, reported as a normal `error` string.
 ## 13. Deployment
 
 - **Platform**: Azure App Service (Linux, Java SE 21)
-- **URL**: `https://regex-tester-api-java.azurewebsites.net`
+- **URL**: `https://regex-tester-api-java-addef8dcgjbqa6bc.centralus-01.azurewebsites.net`
 - **Port**: 5300 (dev). App Service injects `PORT`.
 - **Startup command**: none required — the Java SE image runs `java -jar /home/site/wwwroot/app.jar`,
   which is why `pom.xml` pins `<finalName>app</finalName>`.

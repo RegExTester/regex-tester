@@ -44,7 +44,28 @@ az webapp create --name regex-tester-api-python --resource-group regex-tester \
 
 az webapp create --name regex-tester-api-java --resource-group regex-tester \
   --plan regex-tester-plan --runtime "JAVA:21-java21"
+```
 
+> **App name vs. default hostname.** These are no longer the same string. Azure now assigns each new
+> web app a **unique default hostname** of the form
+> `<app-name>-<random>.<region>-01.azurewebsites.net`, so `regex-tester-api-python` is reachable at
+> `regex-tester-api-python-c9apa4ekfta6hac6.centralus-01.azurewebsites.net` and
+> `regex-tester-api-java` at `regex-tester-api-java-addef8dcgjbqa6bc.centralus-01.azurewebsites.net`.
+> The two older apps (`-dotnet`, `-nodejs`) predate this and still use the short
+> `<app-name>.azurewebsites.net` form.
+>
+> The **app name** is what the deploy workflows use (`AZURE_WEBAPP_NAME`), and it is unchanged — do
+> not edit the workflows. The **hostname** is what the frontend calls, so it lives in
+> `ui-vuejs/.env.production`. The random suffix is assigned at creation time and will differ in your
+> subscription, so after creating the apps read the real values back and update
+> `ui-vuejs/.env.production` to match:
+>
+> ```bash
+> az webapp show --name regex-tester-api-python --resource-group regex-tester \
+>   --query defaultHostName --output tsv
+> ```
+
+```bash
 # Cosmos DB account (serverless-capable API for NoSQL)
 az cosmosdb create --name regex-tester-cosmos --resource-group regex-tester \
   --locations regionName=centralus
@@ -278,11 +299,11 @@ with *Contract tests* as a required status check. The two are complements, not s
 # Each backend: capabilities should report the right engine and a runtime block
 curl -s https://regex-tester-api-dotnet.azurewebsites.net/api/capabilities | grep -o '"engineKey":"[A-Z]*"'
 curl -s https://regex-tester-api-nodejs.azurewebsites.net/api/capabilities | grep -o '"engineKey":"[A-Z]*"'
-curl -s https://regex-tester-api-python.azurewebsites.net/api/capabilities | grep -o '"engineKey":"[A-Z]*"'
-curl -s https://regex-tester-api-java.azurewebsites.net/api/capabilities | grep -o '"engineKey":"[A-Z]*"'
+curl -s https://regex-tester-api-python-c9apa4ekfta6hac6.centralus-01.azurewebsites.net/api/capabilities | grep -o '"engineKey":"[A-Z]*"'
+curl -s https://regex-tester-api-java-addef8dcgjbqa6bc.centralus-01.azurewebsites.net/api/capabilities | grep -o '"engineKey":"[A-Z]*"'
 
 # Each backend: a simple match should come back populated
-curl -s -X POST https://regex-tester-api-python.azurewebsites.net/api/regex \
+curl -s -X POST https://regex-tester-api-python-c9apa4ekfta6hac6.centralus-01.azurewebsites.net/api/regex \
   -H "Content-Type: application/json" \
   -d '{"pattern":"a+","text":"aaa","options":0}'
 

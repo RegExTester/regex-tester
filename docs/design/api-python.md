@@ -206,7 +206,7 @@ FastAPI auto-generates the OpenAPI document from the Pydantic models and route d
 ## 13. Deployment
 
 - **Platform**: Azure App Service (Linux, Python 3.13)
-- **URL**: `https://regex-tester-api-python.azurewebsites.net`
+- **URL**: `https://regex-tester-api-python-c9apa4ekfta6hac6.centralus-01.azurewebsites.net`
 - **Port**: 5200 (dev)
 - **Startup command**: `python -m uvicorn src.main:app --host 0.0.0.0 --port $PORT`
 - **Required app setting**: `ENVIRONMENT=production` — must be set explicitly on the App Service

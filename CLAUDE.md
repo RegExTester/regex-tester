@@ -200,8 +200,8 @@ a normal `error` string with HTTP 200).
 
 - **api-dotnet**: Azure App Service (`regex-tester-api-dotnet.azurewebsites.net`)
 - **api-nodejs**: Azure App Service (`regex-tester-api-nodejs.azurewebsites.net`)
-- **api-python**: Azure App Service (`regex-tester-api-python.azurewebsites.net`)
-- **api-java**: Azure App Service (`regex-tester-api-java.azurewebsites.net`)
+- **api-python**: Azure App Service (app `regex-tester-api-python`, host `regex-tester-api-python-c9apa4ekfta6hac6.centralus-01.azurewebsites.net`)
+- **api-java**: Azure App Service (app `regex-tester-api-java`, host `regex-tester-api-java-addef8dcgjbqa6bc.centralus-01.azurewebsites.net`)
 - **Frontend**: GitHub Pages (`https://regextester.github.io/`)
 - **Telemetry**: Azure Cosmos DB (all four backends, optional — disabled when the connection string is empty)
 

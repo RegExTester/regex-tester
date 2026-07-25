@@ -19,8 +19,8 @@ identical results, so it doubles as a side-by-side comparison of the four regex 
 - Frontend: **https://regextester.github.io/**
 - APIs: [regex-tester-api-dotnet](https://regex-tester-api-dotnet.azurewebsites.net) ·
   [regex-tester-api-nodejs](https://regex-tester-api-nodejs.azurewebsites.net) ·
-  [regex-tester-api-python](https://regex-tester-api-python.azurewebsites.net) ·
-  [regex-tester-api-java](https://regex-tester-api-java.azurewebsites.net)
+  [regex-tester-api-python](https://regex-tester-api-python-c9apa4ekfta6hac6.centralus-01.azurewebsites.net) ·
+  [regex-tester-api-java](https://regex-tester-api-java-addef8dcgjbqa6bc.centralus-01.azurewebsites.net)
 
 ## Projects
 

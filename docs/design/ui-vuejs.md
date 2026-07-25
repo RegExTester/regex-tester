@@ -141,8 +141,8 @@ fetch(apiConfig().REGEX, {
 |----------|-----------|------------------------------|
 | `VITE_API_DOTNET` | `http://localhost:5000` | `https://regex-tester-api-dotnet.azurewebsites.net` |
 | `VITE_API_NODEJS` | `http://localhost:5100` | `https://regex-tester-api-nodejs.azurewebsites.net` |
-| `VITE_API_PYTHON` | `http://localhost:5200` | `https://regex-tester-api-python.azurewebsites.net` |
-| `VITE_API_JAVA` | `http://localhost:5300` | `https://regex-tester-api-java.azurewebsites.net` |
+| `VITE_API_PYTHON` | `http://localhost:5200` | `https://regex-tester-api-python-c9apa4ekfta6hac6.centralus-01.azurewebsites.net` |
+| `VITE_API_JAVA` | `http://localhost:5300` | `https://regex-tester-api-java-addef8dcgjbqa6bc.centralus-01.azurewebsites.net` |
 
 ## UI Layout (Bootstrap Grid)
 
