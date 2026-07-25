@@ -17,6 +17,10 @@ RegEx Tester is a mono-repo containing one frontend SPA and three backend APIs t
 
 The Vue.js frontend supports switching between all three backends at runtime via an engine dropdown, driven by each backend's `GET /api/capabilities` response.
 
+See [README.md](README.md) for a quick start, [ARCHITECTURE.md](ARCHITECTURE.md) for the system-level
+design (diagrams, cross-cutting concerns, engine divergences), and [DEPLOYMENT.md](DEPLOYMENT.md) for
+the Azure/GitHub Pages deployment runbook.
+
 ## Commands
 
 ### api-dotnet

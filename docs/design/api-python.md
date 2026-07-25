@@ -1,5 +1,7 @@
 # api-python — Design Document
 
+> See also: [api-python/ARCHITECTURE.md](../../api-python/ARCHITECTURE.md) for the internal request pipeline, timeout implementation, and telemetry details.
+
 ## 1. Overview
 
 FastAPI/Uvicorn backend for the RegEx Tester application. Implements the [canonical v1 API
@@ -29,7 +31,7 @@ api-python/
 │   ├── services/
 │   │   ├── regex_processor.py      # Core `re`-based matching/replace engine, 15s deadline
 │   │   ├── capabilities.py         # Builds the GET /api/capabilities response body
-│   │   └── telemetry_service.py    # Telemetry stub (currently a no-op; see §12)
+│   │   └── telemetry_service.py    # Cosmos DB telemetry, standardized across all three backends (see §12)
 │   └── middleware/
 │       ├── max_body_size.py        # Enforces maxRequestBodyBytes (8192) -> HTTP 413
 │       └── request_timeout.py      # 5s HTTP timeout -> HTTP 200 with error body
@@ -196,7 +198,7 @@ FastAPI auto-generates the OpenAPI document from the Pydantic models and route d
 | Port | 5000/5001 | 5100 | 5200 |
 | Regex engine | `System.Text.RegularExpressions` | JavaScript `RegExp` | stdlib `re` |
 | `features.captures` | `"multi"` — `Group.Captures` retains every capture of a repeated group | `"single"` — only the last capture per group is exposed | `"single"` — `Match.groups()` only exposes the last capture per group, so `ShowCaptures` yields a single-element `captures` array |
-| Telemetry | Azure Cosmos DB | Not implemented | Stub only (`telemetry_service.py` is a no-op); Cosmos DB integration is out of scope for this backend |
+| Telemetry | Azure Cosmos DB | Azure Cosmos DB | Azure Cosmos DB — standardized 12-field document, same `/engineKey` partition key, fire-and-forget via FastAPI `BackgroundTasks` (see `telemetry_service.py`) |
 | OpenAPI generation | Built-in ASP.NET OpenApi | Custom JSDoc parser | Built-in FastAPI/Pydantic generation |
 | Named group syntax | `(?<name>...)` native | `(?<name>...)` native | Translated from `(?<name>...)` to `(?P<name>...)` before compiling |
 

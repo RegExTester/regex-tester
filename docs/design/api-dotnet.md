@@ -1,5 +1,7 @@
 # api-dotnet — Design Document
 
+> See also: [api-dotnet/ARCHITECTURE.md](../../api-dotnet/ARCHITECTURE.md) for the internal request pipeline, timeout implementation, and telemetry details.
+
 ## Overview
 
 .NET 10.0 Web API backend for the RegEx Tester application. Provides a REST API for real-time .NET regex testing with match highlighting, group/capture extraction, and optional telemetry logging to Azure Cosmos DB.
@@ -106,8 +108,9 @@ body, before the body is parsed or any field is validated.
 
 - Implements `ITelemetryService` (registered as Singleton)
 - Logs each regex request to Azure Cosmos DB asynchronously
-- Logged fields: id, timestamp, host, user-agent, pattern, text, replace, options
-- Partition key: `/timestamp`
+- Logged fields (12, standardized across all three backends): id, engineKey, timestamp, host,
+  userAgent, pattern, text, replace, options, durationMs, matchCount, error
+- Partition key: `/engineKey`
 - Graceful degradation: no-op when connection string is empty
 - Fire-and-forget: failures don't affect API response
 
