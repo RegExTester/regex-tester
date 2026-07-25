@@ -13,6 +13,12 @@
     <PackageReference Include="Microsoft.Azure.Cosmos" Version="3.48.0" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.*" />
+    <!-- Pins the transitive Microsoft.OpenApi brought in by Microsoft.AspNetCore.OpenApi above
+         the version affected by CVE-2026-49451 (GHSA-v5pm-xwqc-g5wc), a stack-overflow /
+         process-termination bug when parsing OpenAPI documents with circular schema references.
+         Patched in 2.7.5. This API only generates its own OpenAPI document and never parses an
+         untrusted one, so it was not exploitable here, but the pin keeps the restore clean. -->
+    <PackageReference Include="Microsoft.OpenApi" Version="2.7.5" />
     <PackageReference Include="Scalar.AspNetCore" Version="2.*" />
   </ItemGroup>
 
