@@ -93,8 +93,15 @@ az cosmosdb keys list --name regex-tester-cosmos --resource-group regex-tester \
 > **`ENVIRONMENT` warning.** `api-python` defaults `ENVIRONMENT` to `development` when the setting
 > is absent. In development mode it opens CORS to any `http(s)://localhost[:port]` origin. If you
 > deploy without setting `ENVIRONMENT=production`, the deployed instance keeps reflecting localhost
-> origins in production. The `deploy-api-python.yml` workflow sets this automatically after every
-> deploy (see §4), but set it manually the first time or if you ever deploy outside that workflow.
+> origins in production.
+>
+> **Nothing in CI sets this for you.** It is a one-time provisioning step you must perform here, and
+> re-check whenever the web app is recreated. Verify it with:
+>
+> ```bash
+> az webapp config appsettings list --name regex-tester-api-python \
+>   --resource-group regex-tester --query "[?name=='ENVIRONMENT']"
+> ```
 
 Example of setting app settings directly:
 
@@ -109,7 +116,9 @@ az webapp config appsettings set --name regex-tester-api-python --resource-group
              COSMOS_DATABASE="regex-tester-db" COSMOS_CONTAINER="telemetry"
 ```
 
-`api-python`'s startup command is set by the deploy workflow itself (see §4), not here:
+`api-python`'s startup command is set by the deploy workflow itself via the `startup-command` input
+of `azure/webapps-deploy@v3` (see §4), so you do not normally need this — but it is the equivalent
+manual command:
 
 ```bash
 az webapp config set --name regex-tester-api-python --resource-group regex-tester \
@@ -172,7 +181,6 @@ secret is referenced anywhere in this repo.
 | Secret | Used by | What it is | How to generate |
 |---|---|---|---|
 | `AZURE_CREDENTIALS` | `deploy-api-dotnet.yml`, `deploy-api-nodejs.yml`, `deploy-api-python.yml` | Service-principal JSON for `azure/login@v2` | `az ad sp create-for-rbac --sdk-auth` scoped to the `regex-tester` resource group (§4) |
-| `AZURE_RESOURCE_GROUP` | `deploy-api-python.yml` only | Plain resource group name (`regex-tester`), used by the `azure/CLI@v2` step that sets the startup command and `ENVIRONMENT=production` | Just the literal resource group name — not a secret in the cryptographic sense, but stored as one for consistency |
 | `PAGES_DEPLOY_TOKEN` | `deploy-ui-vuejs.yml` only | A GitHub [personal access token](https://github.com/settings/tokens) with `repo` scope on the external `RegExTester/regextester.github.io` repository | Create a fine-grained or classic PAT with write access to that repo's contents |
 
 Add secrets at **Settings → Secrets and variables → Actions → New repository secret** on this

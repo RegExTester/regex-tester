@@ -97,9 +97,11 @@ name (e.g. `rust`), `<ENGINE>` the uppercase engine key (e.g. `RUST`).
 - [ ] The new engine is added to the `contract-tests.yml` matrix, so it gates every *other*
       project's deploys too
 - [ ] Uses `azure/login@v2` with `secrets.AZURE_CREDENTIALS` and `azure/webapps-deploy@v3`
-- [ ] **No new secrets invented** — only `AZURE_CREDENTIALS`, `AZURE_RESOURCE_GROUP`, `PAGES_DEPLOY_TOKEN` exist
+- [ ] **No new secrets invented** — only `AZURE_CREDENTIALS` and `PAGES_DEPLOY_TOKEN` exist
 - [ ] Added to the `contract-tests.yml` matrix with the right SDK setup, start command and port
-- [ ] Any production-only env var (e.g. an `ENVIRONMENT=production` equivalent) is set by the workflow
+- [ ] Any production-only env var (e.g. an `ENVIRONMENT=production` equivalent) is documented as an
+      App Service **app setting** in DEPLOYMENT.md §3 — CI does not set app settings, because that
+      would require `azure/CLI@v2` and a resource group
 
 ## Documentation
 

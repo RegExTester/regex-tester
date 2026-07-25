@@ -117,5 +117,8 @@ Azure App Service: `regex-tester-api-dotnet` / `-nodejs` / `-python`, resource g
 region `centralus`, plan SKU `S1`. Frontend on GitHub Pages via the external repo
 `RegExTester/regextester.github.io` (branch `master`). Remote is `RegExTester/regex-tester`.
 
-The only three CI secrets: `AZURE_CREDENTIALS` (all backend deploys), `AZURE_RESOURCE_GROUP`
-(api-python only), `PAGES_DEPLOY_TOKEN` (frontend only). See [DEPLOYMENT.md](../../../../DEPLOYMENT.md).
+The only two CI secrets: `AZURE_CREDENTIALS` (all backend deploys) and `PAGES_DEPLOY_TOKEN`
+(frontend only). Deploy workflows must not shell out to `azure/CLI@v2` — doing so needs a resource
+group, which is why an `AZURE_RESOURCE_GROUP` secret once existed and broke the api-python deploy
+when unset. Use `azure/webapps-deploy@v3` inputs (e.g. `startup-command`) instead.
+See [DEPLOYMENT.md](../../../../DEPLOYMENT.md).

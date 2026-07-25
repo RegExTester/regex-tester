@@ -55,16 +55,10 @@ jobs:
         with:
           app-name: ${{ env.AZURE_WEBAPP_NAME }}
           package: deploy
-
-      - name: Configure startup command and app settings
-        uses: azure/CLI@v2
-        with:
-          inlineScript: |
-            az webapp config set \
-              --name ${{ env.AZURE_WEBAPP_NAME }} \
-              --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
-              --startup-file "python -m uvicorn src.main:app --host 0.0.0.0 --port \$PORT"
-            az webapp config appsettings set \
-              --name ${{ env.AZURE_WEBAPP_NAME }} \
-              --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
-              --settings ENVIRONMENT=production
+          # Set here rather than via a separate azure/CLI@v2 step, which was the only thing in this
+          # repo needing the AZURE_RESOURCE_GROUP secret — an unset secret expanded to nothing and
+          # broke the deploy with "argument --resource-group/-g: expected one argument". This keeps
+          # the workflow structurally identical to deploy-api-dotnet and deploy-api-nodejs.
+          # $PORT is passed through literally for App Service to expand at runtime; no shell is
+          # involved here, so it needs no escaping.
+          startup-command: 'python -m uvicorn src.main:app --host 0.0.0.0 --port $PORT'

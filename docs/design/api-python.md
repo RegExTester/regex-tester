@@ -187,7 +187,7 @@ FastAPI auto-generates the OpenAPI document from the Pydantic models and route d
 | Variable | Default | Description |
 |---|---|---|
 | `PORT` | 5200 | HTTP listen port (used by the `uvicorn.run(...)` fallback in `main.py`'s `__main__` block) |
-| `ENVIRONMENT` | `development` | `production` restricts CORS to the allow-list only (see §9); **the Azure deploy workflow sets this explicitly to `production`** — running the app any other way without setting it leaves the local-dev CORS behaviour active |
+| `ENVIRONMENT` | `development` | `production` restricts CORS to the allow-list only (see §9); **must be set as an App Service app setting during provisioning — no deploy workflow sets it** — so an instance without it leaves the local-dev CORS behaviour active |
 | `ALLOW_CORS` | *(empty)* | Comma-separated extra allowed CORS origins |
 
 ## 12. Key Differences from the other backends

@@ -51,7 +51,8 @@ Divergences must be **documented**, not accidental.
   appsettings; `ALLOW_CORS` comma-separated env var in Node and Python).
 - Reflect `http(s)://localhost[:port]` **only in development**.
   - api-python gates on `ENVIRONMENT != "production"` and **defaults to `development`** — production
-    must set `ENVIRONMENT=production` or localhost stays allowed.
+    must set `ENVIRONMENT=production` or localhost stays allowed. **No workflow sets this**; it is an
+    App Service app setting applied at provisioning time (DEPLOYMENT.md §3).
   - **Known gap:** api-nodejs currently reflects localhost in *every* environment. If you touch its CORS,
     fix this to match the other two.
 
