@@ -17,7 +17,10 @@ from .middleware.max_body_size import MaxBodySizeMiddleware
 from .middleware.request_timeout import RequestTimeoutMiddleware
 from .routers import home, regex
 
-ENVIRONMENT = os.environ.get("ENVIRONMENT", "production")
+# Defaults to "development" so a plain local `uvicorn` run allows the local frontend
+# origin, matching api-nodejs and api-dotnet. Deployments must set ENVIRONMENT=production
+# explicitly, which restricts CORS to the configured allow-list only.
+ENVIRONMENT = os.environ.get("ENVIRONMENT", "development")
 ALLOW_CORS = os.environ.get("ALLOW_CORS", "")
 
 app = FastAPI(
@@ -31,7 +34,7 @@ app = FastAPI(
 
 _extra_origins = [origin.strip() for origin in ALLOW_CORS.split(",") if origin.strip()]
 _allow_origins = ["https://regextester.github.io", *_extra_origins]
-_allow_origin_regex = r"^https?://localhost(:\d+)?$" if ENVIRONMENT == "development" else None
+_allow_origin_regex = r"^https?://localhost(:\d+)?$" if ENVIRONMENT != "production" else None
 
 app.add_middleware(
     CORSMiddleware,

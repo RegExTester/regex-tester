@@ -16,7 +16,8 @@ export const CONFIG_DOTNET = {
     ShowCaptures:            { Value: 1 << 15, Name: 'Show Captures' },
   },
   API: {
-    INFO:  apiBase + '/api/version',
-    REGEX: apiBase + '/api/regex',
+    INFO:         apiBase + '/api/version',
+    REGEX:        apiBase + '/api/regex',
+    CAPABILITIES: apiBase + '/api/capabilities',
   },
 }

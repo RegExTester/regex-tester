@@ -41,7 +41,7 @@
             <div>
               <textarea v-model="pattern" @input="delaySubmit()"
                 rows="3" autocorrect="off" autocapitalize="none" spellcheck="false"
-                maxlength="512"
+                :maxlength="limits.patternMaxLength"
                 class="form-control input-text pattern" placeholder="\w+">
               </textarea>
               <span class="error-message" :class="{ hidden: !result.error }">{{ result.error || '' }}</span>
@@ -53,7 +53,7 @@
               <div class="loading center center-text-textarea" :class="{ hidden: !busy }"></div>
               <textarea v-model="text" @input="delaySubmit()"
                 rows="5" autocorrect="off" autocapitalize="none" spellcheck="false"
-                maxlength="1024"
+                :maxlength="limits.textMaxLength"
                 class="form-control input-text text" :class="{ readonly: busy }"
                 placeholder="Input some text here">
               </textarea>
@@ -76,9 +76,9 @@
             </a>
           </h6>
           <div class="form-check" v-for="option in options" :key="option.value">
-            <label class="form-check-label">
+            <label class="form-check-label" :title="option.disabled ? (option.description || 'Not supported by this engine') : null">
               <input type="checkbox" class="form-check-input"
-                v-model="option.checked" @change="delaySubmit()">
+                v-model="option.checked" :disabled="option.disabled" @change="delaySubmit()">
               <code v-if="option.flag" class="option-flag">{{ option.flag }}</code> {{ option.name }}
             </label>
           </div>
@@ -193,9 +193,9 @@
         <div class="col">
           <h6>Options</h6>
           <div class="form-check" v-for="option in options" :key="'m-' + option.value">
-            <label class="form-check-label">
+            <label class="form-check-label" :title="option.disabled ? (option.description || 'Not supported by this engine') : null">
               <input type="checkbox" class="form-check-input"
-                v-model="option.checked" @change="delaySubmit(500)">
+                v-model="option.checked" :disabled="option.disabled" @change="delaySubmit(500)">
               <code v-if="option.flag" class="option-flag">{{ option.flag }}</code> {{ option.name }}
             </label>
           </div>
@@ -233,6 +233,7 @@ const busy            = ref(false)
 const activeTab       = ref('matches')
 const result          = ref({})
 const expandMatchResult = ref({})
+const limits          = ref({ patternMaxLength: 512, textMaxLength: 1024, replaceMaxLength: 1024 })
 
 function engineConfig(engineKey) {
   return CONFIG.ENGINES[engineKey ?? selectedEngine.value]
@@ -240,14 +241,30 @@ function engineConfig(engineKey) {
 
 const options = ref([])
 
+function currentBitmask() {
+  return options.value.reduce((sum, opt) => sum + (opt.checked ? opt.value : 0), 0)
+}
+
+// Bundled fallback: only the flags this engine's config file lists as supported.
 function rebuildOptions(engineKey, bitmask) {
   const src = engineConfig(engineKey).REGEX_OPTIONS
   options.value = Object.values(src).map(opt => ({
-    name: opt.Name, value: opt.Value, flag: opt.Flag || null, checked: (bitmask & opt.Value) === opt.Value
+    name: opt.Name, value: opt.Value, flag: opt.Flag || null, description: null,
+    checked: (bitmask & opt.Value) === opt.Value, disabled: false
+  }))
+}
+
+// Live /api/capabilities: full flag registry, with unsupported flags shown disabled.
+function rebuildOptionsFromCapabilities(capsOptions, bitmask) {
+  options.value = (capsOptions || []).map(opt => ({
+    name: opt.name, value: opt.value, flag: opt.flag || null, description: opt.description || null,
+    checked: (bitmask & opt.value) === opt.value, disabled: !opt.supported
   }))
 }
 
 let debounceTimer = null
+let pendingBitmask = 0
+let seedFromDefaults = false
 
 // Computed helpers
 const engineTooltip = computed(() =>
@@ -272,35 +289,82 @@ function apiConfig() {
 }
 
 const versionCache = {}
+const capabilitiesCache = {}
 const VERSION_CACHE_TTL = 10 * 60 * 1000 // 10 minutes
+const CAPABILITIES_FETCH_TIMEOUT = 5000 // ms; guards against a stalled/offline backend hanging forever
+
+function fetchWithTimeout(url, ms) {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), ms)
+  return fetch(url, { signal: controller.signal }).finally(() => clearTimeout(timer))
+}
+
+function fetchCapabilities(engineKey) {
+  const cached = capabilitiesCache[engineKey]
+  if (cached && Date.now() - cached.at < VERSION_CACHE_TTL) {
+    return Promise.resolve(cached.value)
+  }
+  return fetchWithTimeout(engineConfig(engineKey).API.CAPABILITIES, CAPABILITIES_FETCH_TIMEOUT)
+    .then(r => {
+      if (!r.ok) throw new Error(r.statusText)
+      return r.json()
+    })
+    .then(data => {
+      capabilitiesCache[engineKey] = { value: data, at: Date.now() }
+      return data
+    })
+}
+
+// Applies a live /api/capabilities response: rebuilds the option list (preserving whatever
+// bitmask was in effect before the fetch) and the pattern/text length limits. Never called
+// when the fetch failed -- callers fall back to the bundled config silently in that case.
+function applyCapabilities(engineKey, caps) {
+  if (selectedEngine.value !== engineKey) return // stale response from a since-abandoned switch
+
+  const bitmask = seedFromDefaults ? (caps.defaultOptions ?? engineConfig(engineKey).DEFAULT_OPTIONS ?? 0) : pendingBitmask
+  seedFromDefaults = false
+  rebuildOptionsFromCapabilities(caps.options, bitmask)
+
+  limits.value = {
+    patternMaxLength: caps.limits?.patternMaxLength ?? 512,
+    textMaxLength:    caps.limits?.textMaxLength ?? 1024,
+    replaceMaxLength: caps.limits?.replaceMaxLength ?? 1024,
+  }
+}
 
 function warmUpApiServer() {
   const key = selectedEngine.value
   const cached = versionCache[key]
   if (cached && Date.now() - cached.at < VERSION_CACHE_TTL) {
     engine.value = cached.value
-    return
+  } else {
+    const previous = engine.value
+    engine.value = ''
+    fetch(apiConfig().INFO)
+      .then(r => {
+        if (r.status === 304) {
+          engine.value = previous || 'online'
+          return
+        }
+        if (!r.ok) throw new Error(r.statusText)
+        return r.json().then(data => {
+          engine.value = data.framework || data.frameworkDescription
+          versionCache[key] = { value: engine.value, at: Date.now() }
+        })
+      })
+      .catch(() => { engine.value = 'offline' })
   }
 
-  const previous = engine.value
-  engine.value = ''
-  fetch(apiConfig().INFO)
-    .then(r => {
-      if (r.status === 304) {
-        engine.value = previous || 'online'
-        return
-      }
-      if (!r.ok) throw new Error(r.statusText)
-      return r.json().then(data => {
-        engine.value = data.frameworkDescription || data.framework
-        versionCache[key] = { value: engine.value, at: Date.now() }
-      })
-    })
-    .catch(() => { engine.value = 'offline' })
+  // Folded into the same warm-up call so an engine switch costs at most one extra round trip.
+  fetchCapabilities(key)
+    .then(caps => applyCapabilities(key, caps))
+    .catch(() => { /* capabilities unavailable/timed out -- keep the bundled fallback already rendered */ })
 }
 
 function onEngineChange() {
-  applyDefaultOptions(selectedEngine.value)
+  seedFromDefaults = false
+  pendingBitmask = currentBitmask()
+  rebuildOptions(selectedEngine.value, pendingBitmask) // immediate bundled render; preserves the bitmask
   warmUpApiServer()
   delaySubmit()
 }
@@ -313,12 +377,12 @@ function delaySubmit(time) {
 function submit() {
   if (!pattern.value || !text.value) return
 
-  if (pattern.value.length > 512) {
-    result.value = { error: 'Pattern exceeds maximum length of 512 characters.' }
+  if (pattern.value.length > limits.value.patternMaxLength) {
+    result.value = { error: `Pattern exceeds maximum length of ${limits.value.patternMaxLength} characters.` }
     return
   }
-  if (text.value.length > 1024) {
-    result.value = { error: 'Text exceeds maximum length of 1024 characters.' }
+  if (text.value.length > limits.value.textMaxLength) {
+    result.value = { error: `Text exceeds maximum length of ${limits.value.textMaxLength} characters.` }
     return
   }
 
@@ -345,8 +409,13 @@ function submit() {
       options: optionsBitmask
     })
   })
-    .then(r => r.json())
-    .then(data => {
+    .then(r => r.json().then(data => ({ ok: r.ok, status: r.status, data })))
+    .then(({ ok, status, data }) => {
+      if (!ok) {
+        result.value = { error: formatApiError(status, data) }
+        busy.value = false
+        return
+      }
       result.value = data
       let ht = text.value
       for (let i = data.matches.length - 1; i >= 0; i--) {
@@ -378,9 +447,17 @@ function engineKeyByIndex(index) {
   return entry ? entry.Key : CONFIG.DEFAULT_ENGINE
 }
 
-function applyDefaultOptions(engineKey) {
-  const defaults = engineConfig(engineKey).DEFAULT_OPTIONS ?? 0
-  rebuildOptions(engineKey, defaults)
+// Renders a 400/413 ProblemDetails body as a single readable string. Values here are
+// interpolated as text ({{ result.error }}) rather than v-html, so no HTML injection risk
+// even though these strings originate from the API response.
+function formatApiError(status, problem) {
+  if (status === 413) {
+    return problem?.title || 'Request too large.'
+  }
+  if (problem?.errors) {
+    return Object.values(problem.errors).flat().join(' ')
+  }
+  return problem?.title || `Request failed (HTTP ${status}).`
 }
 
 function initFromRoute() {
@@ -389,11 +466,17 @@ function initFromRoute() {
 
   selectedEngine.value = engineKeyByIndex(engineParam)
 
-  const defaultOpts = engineConfig(selectedEngine.value).DEFAULT_OPTIONS ?? 0
-  const optionsValue = isNaN(+params.options) ? defaultOpts : +params.options
+  const hasExplicitOptions = !isNaN(+params.options)
+  const defaultOpts  = engineConfig(selectedEngine.value).DEFAULT_OPTIONS ?? 0
+  const optionsValue = hasExplicitOptions ? +params.options : defaultOpts
 
   pattern.value = decodeBase64(params.pattern || '')
   text.value    = decodeBase64(params.text    || '')
+
+  // Only seed from the engine's defaults when the URL has no explicit bitmask (first load).
+  // A later engine switch always preserves whatever bitmask is currently in effect.
+  seedFromDefaults = !hasExplicitOptions
+  pendingBitmask = optionsValue
   rebuildOptions(selectedEngine.value, optionsValue)
 
   submit()

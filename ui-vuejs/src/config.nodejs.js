@@ -13,7 +13,8 @@ export const CONFIG_NODEJS = {
     Sticky:      { Value: 1 << 16, Name: 'Sticky',         Flag: 'y' }
   },
   API: {
-    INFO:  apiBase + '/api/version',
-    REGEX: apiBase + '/api/regex',
+    INFO:         apiBase + '/api/version',
+    REGEX:        apiBase + '/api/regex',
+    CAPABILITIES: apiBase + '/api/capabilities',
   },
 }
