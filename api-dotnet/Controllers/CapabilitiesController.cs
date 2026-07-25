@@ -29,7 +29,7 @@ namespace RegExTester.Api.DotNet.Controllers
         {
             return Json(new CapabilitiesResult
             {
-                EngineKey = "DOTNET",
+                EngineKey = RegExTesterOptionsRegistry.EngineKey,
                 EngineName = ".Net",
                 ContractVersion = "1.0",
                 Runtime = new Runtime

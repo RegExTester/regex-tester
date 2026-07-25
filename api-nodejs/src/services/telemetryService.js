@@ -1,5 +1,6 @@
 import { CosmosClient } from '@azure/cosmos';
 import { randomUUID } from 'crypto';
+import { ENGINE_KEY } from './capabilities.js';
 
 let cosmosClient = null;
 let cosmosContainer = null;
@@ -14,27 +15,42 @@ async function initCosmos(connectionString, database, container) {
   });
   const { container: cont } = await db.containers.createIfNotExists({
     id: container,
-    partitionKey: { paths: ['/timestamp'] },
+    partitionKey: { paths: ['/engineKey'] },
   });
   cosmosContainer = cont;
 }
 
-async function sendTelemetry(req, model) {
+/**
+ * Records one telemetry document for a completed `POST /api/regex` request. Fire-and-forget:
+ * the Cosmos write is never awaited by the caller, and every error is swallowed here (logged at
+ * warning level at most) so a Cosmos outage can never affect the HTTP response.
+ *
+ * @param {import('express').Request} req
+ * @param {{pattern: string|null, text: string|null, replace: string|null, options: number}} model
+ * @param {{durationMs: number, matchCount: number, error: string|null}} outcome
+ */
+function sendTelemetry(req, model, { durationMs, matchCount, error }) {
   if (!cosmosClient || !cosmosContainer) return;
 
-  const timestamp = new Date().toISOString();
   const item = {
     id: randomUUID(),
-    timestamp,
+    engineKey: ENGINE_KEY,
+    timestamp: new Date().toISOString(),
     host: req.get('host') || '',
-    useragent: req.get('user-agent') || '',
+    userAgent: req.get('user-agent') || '',
     pattern: model.pattern,
     text: model.text,
-    replace: model.replace,
-    options: String(model.options ?? 0),
+    replace: model.replace ?? null,
+    options: model.options ?? 0,
+    durationMs,
+    matchCount,
+    error,
   };
 
-  await cosmosContainer.items.create(item);
+  cosmosContainer.items.create(item).catch(err => {
+    console.warn('Telemetry write failed:', err.message);
+  });
 }
 
 export const telemetryService = { initCosmos, sendTelemetry };
+

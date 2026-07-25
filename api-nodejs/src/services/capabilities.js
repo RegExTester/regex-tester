@@ -28,7 +28,7 @@ const OPTION_REGISTRY = [
   { value: 131072, name: 'Ascii', flag: null, supported: false, description: 'Restricts character classes to ASCII only. Not supported by this engine; the bit is ignored.' },
 ];
 
-const ENGINE_KEY = 'NODEJS';
+export const ENGINE_KEY = 'NODEJS';
 const ENGINE_NAME = 'Node.js';
 const CONTRACT_VERSION = '1.0';
 

@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using RegExTester.Api.DotNet.Models;
 using RegExTester.Api.DotNet.Services;
 using Scalar.AspNetCore;
@@ -78,8 +79,12 @@ namespace RegExTester.Api.DotNet
             });
 
             services.AddTransient<IRegExProcessor, RegExProcessor>();
-            services.AddSingleton<ITelemetryService>(
-                new TelemetryService(Configuration["Cosmos:ConnectionString"], Configuration["Cosmos:Database"], Configuration["Cosmos:Container"])
+            services.AddSingleton<ITelemetryService>(sp =>
+                new TelemetryService(
+                    Configuration["Cosmos:ConnectionString"],
+                    Configuration["Cosmos:Database"],
+                    Configuration["Cosmos:Container"],
+                    sp.GetRequiredService<ILogger<TelemetryService>>())
             );
         }
 

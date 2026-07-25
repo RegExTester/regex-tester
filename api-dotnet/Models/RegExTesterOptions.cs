@@ -50,6 +50,13 @@ namespace RegExTester.Api.DotNet.Models
     /// </summary>
     public static class RegExTesterOptionsRegistry
     {
+        /// <summary>
+        /// The single source of truth for this engine's identifier, as reported by
+        /// <c>GET /api/capabilities</c> (<c>engineKey</c>) and reused unchanged by
+        /// <see cref="Services.TelemetryService"/> so the two can never drift apart.
+        /// </summary>
+        public const string EngineKey = "DOTNET";
+
         public static readonly IReadOnlyList<CapabilityOption> All = new List<CapabilityOption>
         {
             new CapabilityOption { Value = 1, Name = "IgnoreCase", Flag = null, Supported = true, Description = "Case-insensitive matching." },

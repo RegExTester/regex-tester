@@ -75,8 +75,14 @@ export const regexController = {
       });
     }
 
+    const start = process.hrtime.bigint();
     const result = RegexProcessor.match(pattern, text, replace, options ?? 0);
-    telemetryService.sendTelemetry(req, { pattern, text, replace, options }).catch(() => {});
+    const durationMs = Number(process.hrtime.bigint() - start) / 1e6;
+    telemetryService.sendTelemetry(req, { pattern, text, replace, options }, {
+      durationMs: Math.round(durationMs),
+      matchCount: result.matches.length,
+      error: result.error,
+    });
     res.json(result);
   },
 };

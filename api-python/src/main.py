@@ -16,6 +16,7 @@ from fastapi.responses import JSONResponse
 from .middleware.max_body_size import MaxBodySizeMiddleware
 from .middleware.request_timeout import RequestTimeoutMiddleware
 from .routers import home, regex
+from .services.telemetry_service import init_cosmos
 
 # Defaults to "development" so a plain local `uvicorn` run allows the local frontend
 # origin, matching api-nodejs and api-dotnet. Deployments must set ENVIRONMENT=production
@@ -74,6 +75,14 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 
 app.include_router(home.router)
 app.include_router(regex.router)
+
+# Initialize telemetry (optional — silently disabled when COSMOS_CONNECTION_STRING is empty).
+# Never raises: a bad or unreachable connection string must not prevent the app from starting.
+init_cosmos(
+    os.environ.get("COSMOS_CONNECTION_STRING", ""),
+    os.environ.get("COSMOS_DATABASE", "regex-tester-db"),
+    os.environ.get("COSMOS_CONTAINER", "telemetry"),
+)
 
 
 if __name__ == "__main__":

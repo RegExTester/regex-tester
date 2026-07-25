@@ -2,8 +2,8 @@ using Microsoft.AspNetCore.Mvc;
 using RegExTester.Api.DotNet.Models;
 using RegExTester.Api.DotNet.Services;
 using System;
+using System.Diagnostics;
 using System.Threading;
-using System.Threading.Tasks;
 
 namespace RegExTester.Api.DotNet.Controllers
 {
@@ -40,15 +40,21 @@ namespace RegExTester.Api.DotNet.Controllers
         [HttpPost]
         [ProducesResponseType(typeof(RegexResult), 200)]
         [ProducesResponseType(400)]
-        public async Task<ActionResult> Post([FromBody] Input model, CancellationToken cancellationToken)
+        public ActionResult Post([FromBody] Input model, CancellationToken cancellationToken)
         {
             if (!ModelState.IsValid)
             {
                 return BadRequest(ModelState);
             }
 
+            var stopwatch = Stopwatch.StartNew();
             var result = RegExProcessor.Matches(model.Pattern, model.Text, model.Replace, model.Options);
-            await TelemetryService.SendTelemetryAsync(Request, model, cancellationToken);
+            stopwatch.Stop();
+
+            // Fire-and-forget: TelemetryService dispatches the Cosmos write on a background task
+            // and never throws, so this call never delays or affects the response below.
+            TelemetryService.RecordTelemetry(Request, model, stopwatch.Elapsed, result.Matches.Count, result.Error);
+
             return Json(result);
         }
     }
