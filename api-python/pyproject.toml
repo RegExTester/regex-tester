@@ -1,0 +1,8 @@
+[project]
+name = "regex-tester-api-python"
+version = "1.0.0"
+description = "REST API for testing Python regular expressions (stdlib `re` only)"
+requires-python = ">=3.11"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

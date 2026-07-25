@@ -10,6 +10,27 @@
     "version": "v1"
   },
   "paths": {
+    "/api/capabilities": {
+      "get": {
+        "tags": [
+          "Capabilities"
+        ],
+        "summary": "Return the limits, features, and option flags this engine supports.",
+        "description": "Response is cached for 24 hours.",
+        "responses": {
+          "200": {
+            "description": "Capability description.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CapabilitiesResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/": {
       "get": {
         "tags": [
@@ -31,13 +52,17 @@
         "tags": [
           "Home"
         ],
-        "summary": "Return runtime version information for the host.",
-        "description": "Response is cached for 24 hours. Includes a `debug` flag when built in DEBUG configuration.",
+        "summary": "Return engine identity and runtime version information for the host.",
+        "description": "Response is cached for 24 hours.",
         "responses": {
           "200": {
             "description": "Version information.",
             "content": {
-              "application/json": { }
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VersionResult"
+                }
+              }
             }
           }
         }
@@ -98,6 +123,100 @@
   },
   "components": {
     "schemas": {
+      "CapabilitiesResult": {
+        "type": "object",
+        "properties": {
+          "engineKey": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Short, stable, uppercase identifier for this engine."
+          },
+          "engineName": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Human-readable engine name."
+          },
+          "contractVersion": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "The version of the shared API contract this engine implements."
+          },
+          "defaultOptions": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "description": "The bitmask the frontend should pre-select for this engine when no shared URL state is present.",
+            "format": "int32"
+          },
+          "limits": {
+            "description": "Request size and timeout limits enforced by this engine.",
+            "$ref": "#/components/schemas/Limits"
+          },
+          "features": {
+            "description": "Optional capabilities this engine implements.",
+            "$ref": "#/components/schemas/Features"
+          },
+          "options": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/CapabilityOption"
+            },
+            "description": "Every option flag known to the shared contract, annotated with whether this engine actually supports it."
+          }
+        },
+        "description": "Response body for the capabilities endpoint."
+      },
+      "CapabilityOption": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "description": "The bitmask value of this flag.",
+            "format": "int32"
+          },
+          "name": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "The contract-wide name of this flag."
+          },
+          "flag": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "The engine-native flag identifier (e.g. `\"i\"` for JS, `\"IGNORECASE\"` for Python); `null` for engines with no string-flag equivalent."
+          },
+          "supported": {
+            "type": "boolean",
+            "description": "Whether this engine actually implements the flag, as opposed to silently ignoring it."
+          },
+          "description": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Human-readable description of the flag's behaviour."
+          }
+        },
+        "description": "Describes one option flag and whether the running engine supports it."
+      },
       "CaptureResult": {
         "type": "object",
         "properties": {
@@ -128,6 +247,27 @@
           }
         },
         "description": "An individual capture produced by a group that matches multiple times."
+      },
+      "Features": {
+        "type": "object",
+        "properties": {
+          "replace": {
+            "type": "boolean",
+            "description": "Whether the `replace` request field is honoured."
+          },
+          "namedGroups": {
+            "type": "boolean",
+            "description": "Whether named capture groups are supported and reported by name."
+          },
+          "captures": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "The level of per-group capture support when `ShowCaptures` is set:\r\n`none`, `single`, or `multi`."
+          }
+        },
+        "description": "Optional capabilities this engine implements."
       },
       "GroupResult": {
         "type": "object",
@@ -213,6 +353,66 @@
           }
         },
         "description": "Request body for the regex matching endpoint."
+      },
+      "Limits": {
+        "type": "object",
+        "properties": {
+          "patternMaxLength": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "description": "Maximum length, in characters, accepted for `pattern`.",
+            "format": "int32"
+          },
+          "textMaxLength": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "description": "Maximum length, in characters, accepted for `text`.",
+            "format": "int32"
+          },
+          "replaceMaxLength": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "description": "Maximum length, in characters, accepted for `replace`.",
+            "format": "int32"
+          },
+          "regexTimeoutMs": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "description": "Maximum time, in milliseconds, allowed for regex evaluation before it is aborted and reported as a timeout error.",
+            "format": "int32"
+          },
+          "requestTimeoutMs": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "description": "Maximum time, in milliseconds, allowed for the whole HTTP request before it is aborted and reported as a timeout error.",
+            "format": "int32"
+          },
+          "maxRequestBodyBytes": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "description": "Maximum accepted size, in bytes, of the whole HTTP request body.",
+            "format": "int32"
+          }
+        },
+        "description": "Request size and timeout limits enforced by this engine."
       },
       "MatchResult": {
         "type": "object",
@@ -335,7 +535,7 @@
             "items": {
               "$ref": "#/components/schemas/MatchResult"
             },
-            "description": "All matches found in the input text. Empty array when there are no matches."
+            "description": "All matches found in the input text. Empty array when there are no matches; never `null`."
           }
         },
         "description": "Top-level result returned by the regex matching endpoint."
@@ -343,10 +543,54 @@
       "RegExTesterOptions": {
         "type": "integer",
         "description": "Bitwise flags that control regex matching behaviour.\r\nValues 0–1024 map directly to RegexOptions.\r\n`ShowCaptures` (32768) is a custom flag handled by the API before forwarding to .NET."
+      },
+      "VersionResult": {
+        "type": "object",
+        "properties": {
+          "engineKey": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Short, stable, uppercase identifier for this engine."
+          },
+          "engineName": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Human-readable engine name."
+          },
+          "contractVersion": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "The version of the shared API contract this engine implements."
+          },
+          "os": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Operating system description of the running host."
+          },
+          "framework": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Runtime/framework version description."
+          }
+        },
+        "description": "Response body for the version endpoint."
       }
     }
   },
   "tags": [
+    {
+      "name": "Capabilities"
+    },
     {
       "name": "Home"
     },

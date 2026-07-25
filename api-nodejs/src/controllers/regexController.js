@@ -16,6 +16,11 @@ export const regexController = {
    *       **Timeout:** The regex engine enforces a 15-second match timeout; the HTTP request
    *       has a 5-second middleware timeout. If either is exceeded an error message is returned
    *       in the `error` field rather than throwing an HTTP error.
+   *
+   *       **Request size:** The raw request body must not exceed `limits.maxRequestBodyBytes`
+   *       (see `GET /api/capabilities`) — currently 8192 bytes. This comfortably fits the
+   *       largest valid payload (`pattern` + `text` + `replace` at their documented maximum
+   *       lengths, plus JSON overhead and multi-byte UTF-8) while still bounding request size.
    *     requestBody:
    *       description: Regex evaluation request.
    *       required: true
@@ -31,7 +36,16 @@ export const regexController = {
    *             schema:
    *               $ref: '#/components/schemas/RegexResult'
    *       400:
-   *         description: Request body failed model validation (e.g. pattern > 512 chars).
+   *         description: |
+   *           Request body failed model validation (e.g. `pattern` > 512 chars), or the request
+   *           body is not valid JSON.
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ProblemDetails'
+   *       413:
+   *         description: |
+   *           The raw request body exceeded `limits.maxRequestBodyBytes` (8192 bytes).
    *         content:
    *           application/json:
    *             schema:
@@ -43,13 +57,13 @@ export const regexController = {
     // Validation
     const errors = {};
     if (pattern != null && pattern.length > 512) {
-      errors.pattern = 'Pattern must be 512 characters or fewer.';
+      errors.pattern = ['Pattern must be 512 characters or fewer.'];
     }
     if (text != null && text.length > 1024) {
-      errors.text = 'Text must be 1024 characters or fewer.';
+      errors.text = ['Text must be 1024 characters or fewer.'];
     }
     if (replace != null && replace.length > 1024) {
-      errors.replace = 'Replace must be 1024 characters or fewer.';
+      errors.replace = ['Replace must be 1024 characters or fewer.'];
     }
 
     if (Object.keys(errors).length > 0) {

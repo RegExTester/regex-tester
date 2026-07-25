@@ -8,7 +8,7 @@ export function requestTimeout(ms) {
         res.json({
           error: `The request timed out (exceeded ${ms / 1000} seconds).`,
           replace: null,
-          matches: null,
+          matches: [],
         });
       }
     }, ms);

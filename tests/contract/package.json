@@ -1,0 +1,19 @@
+{
+  "name": "@regex-tester/contract-tests",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Language-agnostic HTTP conformance suite for every RegEx Tester backend (.NET, Node.js, Python, and future engines). Runs unchanged against any backend via the BASE_URL environment variable.",
+  "scripts": {
+    "test": "vitest run",
+    "test:dotnet": "node run.js http://localhost:5000",
+    "test:nodejs": "node run.js http://localhost:5100",
+    "test:python": "node run.js http://localhost:5200"
+  },
+  "devDependencies": {
+    "ajv": "^8.17.1",
+    "ajv-formats": "^3.0.1",
+    "js-yaml": "^4.1.0",
+    "vitest": "^3.2.4"
+  }
+}

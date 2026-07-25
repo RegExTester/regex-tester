@@ -150,13 +150,147 @@
  *             `null` when no replace pattern was supplied.
  *         matches:
  *           type: array
- *           nullable: true
  *           items:
  *             $ref: '#/components/schemas/MatchResult'
- *           description: All matches found in the input text. Empty array when there are no matches.
+ *           description: |
+ *             All matches found in the input text. MUST be `[]` (never `null`), including on
+ *             error, timeout, or no-match.
+ *
+ *     VersionResult:
+ *       type: object
+ *       description: Response body for `GET /api/version`.
+ *       properties:
+ *         engineKey:
+ *           type: string
+ *           description: Short, stable, uppercase identifier for the engine.
+ *           example: NODEJS
+ *         engineName:
+ *           type: string
+ *           description: Human-readable engine name.
+ *           example: Node.js
+ *         contractVersion:
+ *           type: string
+ *           description: The version of the contract this engine implements.
+ *           example: "1.0"
+ *         os:
+ *           type: string
+ *           description: Operating system description of the running host.
+ *         framework:
+ *           type: string
+ *           description: Runtime/framework version description.
+ *         osDescription:
+ *           type: string
+ *           deprecated: true
+ *           description: Deprecated alias for `os`, retained for one release for backward compatibility.
+ *         frameworkDescription:
+ *           type: string
+ *           deprecated: true
+ *           description: Deprecated alias for `framework`, retained for one release for backward compatibility.
+ *
+ *     Limits:
+ *       type: object
+ *       description: Request size and timeout limits enforced by this engine.
+ *       properties:
+ *         patternMaxLength:
+ *           type: integer
+ *           format: int32
+ *           description: Maximum length, in characters, accepted for `pattern`.
+ *         textMaxLength:
+ *           type: integer
+ *           format: int32
+ *           description: Maximum length, in characters, accepted for `text`.
+ *         replaceMaxLength:
+ *           type: integer
+ *           format: int32
+ *           description: Maximum length, in characters, accepted for `replace`.
+ *         regexTimeoutMs:
+ *           type: integer
+ *           format: int32
+ *           description: Maximum time, in milliseconds, allowed for regex evaluation before it is aborted and reported as a timeout error.
+ *         requestTimeoutMs:
+ *           type: integer
+ *           format: int32
+ *           description: Maximum time, in milliseconds, allowed for the whole HTTP request before it is aborted and reported as a timeout error.
+ *         maxRequestBodyBytes:
+ *           type: integer
+ *           format: int32
+ *           description: |
+ *             Maximum accepted size, in bytes, of the raw HTTP request body. A body exceeding
+ *             this size is rejected with HTTP 413 before JSON parsing/validation runs.
+ *
+ *     Features:
+ *       type: object
+ *       description: Optional capabilities this engine implements.
+ *       properties:
+ *         replace:
+ *           type: boolean
+ *           description: Whether the `replace` request field is honoured.
+ *         namedGroups:
+ *           type: boolean
+ *           description: Whether named capture groups are supported and reported by name.
+ *         captures:
+ *           type: string
+ *           enum: [none, single, multi]
+ *           description: |
+ *             The level of per-group capture support when `ShowCaptures` is set. This engine
+ *             reports `single`: JavaScript's `RegExp`/`String.matchAll` only exposes the last
+ *             capture per group.
+ *
+ *     CapabilityOption:
+ *       type: object
+ *       description: Describes one option flag and whether the running engine supports it.
+ *       properties:
+ *         value:
+ *           type: integer
+ *           format: int32
+ *           description: The bitmask value of this flag.
+ *         name:
+ *           type: string
+ *           description: The canonical flag name (e.g. `IgnoreCase`).
+ *         flag:
+ *           type: string
+ *           nullable: true
+ *           description: The engine-native inline flag letter this bit maps to (e.g. `i`); `null` if this engine has no native equivalent.
+ *         supported:
+ *           type: boolean
+ *           description: Whether this engine actually honours the flag. Unsupported flags are still listed so the frontend can render them as disabled.
+ *         description:
+ *           type: string
+ *           description: Human-readable description of the flag's behaviour.
+ *
+ *     Capabilities:
+ *       type: object
+ *       description: Response body for `GET /api/capabilities`.
+ *       properties:
+ *         engineKey:
+ *           type: string
+ *           description: Short, stable, uppercase identifier for the engine.
+ *           example: NODEJS
+ *         engineName:
+ *           type: string
+ *           description: Human-readable engine name.
+ *           example: Node.js
+ *         contractVersion:
+ *           type: string
+ *           description: The version of the contract this engine implements.
+ *           example: "1.0"
+ *         defaultOptions:
+ *           type: integer
+ *           format: int32
+ *           description: The bitmask the frontend should pre-select for this engine when no shared URL state is present.
+ *         limits:
+ *           $ref: '#/components/schemas/Limits'
+ *         features:
+ *           $ref: '#/components/schemas/Features'
+ *         options:
+ *           type: array
+ *           items:
+ *             $ref: '#/components/schemas/CapabilityOption'
+ *           description: Every option flag known to the contract, annotated with whether this engine actually supports it.
  *
  *     ProblemDetails:
  *       type: object
+ *       description: RFC 9457 problem details returned for request validation failures (HTTP 400).
  *       properties:
  *         type:
  *           type: string
@@ -174,8 +308,17 @@
  *         instance:
  *           type: string
  *           nullable: true
+ *         errors:
+ *           type: object
+ *           description: Validation errors keyed by field name.
+ *           additionalProperties:
+ *             type: array
+ *             items:
+ *               type: string
  *
  * tags:
  *   - name: Home
+ *   - name: Version
+ *   - name: Capabilities
  *   - name: RegEx
  */

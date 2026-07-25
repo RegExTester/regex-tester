@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using RegExTester.Api.DotNet.Models;
 using System.Runtime.InteropServices;
 
 namespace RegExTester.Api.DotNet.Controllers
@@ -18,23 +19,25 @@ namespace RegExTester.Api.DotNet.Controllers
             return Redirect("https://regextester.github.io/");
         }
 
-        /// <summary>Return runtime version information for the host.</summary>
-        /// <remarks>Response is cached for 24 hours. Includes a <c>debug</c> flag when built in DEBUG configuration.</remarks>
-        /// <returns>OS description and .NET framework version string.</returns>
+        /// <summary>Return engine identity and runtime version information for the host.</summary>
+        /// <remarks>Response is cached for 24 hours.</remarks>
+        /// <returns>Engine identity, contract version, OS description, and framework version string.</returns>
         /// <response code="200">Version information.</response>
         [HttpGet]
         [Route("/api/version")]
         [ResponseCache(Duration = 60*60*24)] // 1d
-        [ProducesResponseType(200)]
+        [ProducesResponseType(typeof(VersionResult), 200)]
         public ActionResult Version()
         {
-            return Json(new {
-                #if DEBUG
-                debug = 1,
-                #endif
-                os = RuntimeInformation.OSDescription,
-                framework = RuntimeInformation.FrameworkDescription
+            return Json(new VersionResult
+            {
+                EngineKey = "DOTNET",
+                EngineName = ".Net",
+                ContractVersion = "1.0",
+                Os = RuntimeInformation.OSDescription,
+                Framework = RuntimeInformation.FrameworkDescription
             });
         }
     }
 }
+

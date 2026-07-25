@@ -17,7 +17,10 @@ namespace RegExTester.Api.DotNet
                     webBuilder.UseStartup<Startup>()
                         .ConfigureKestrel(options =>
                         {
-                            options.Limits.MaxRequestBodySize = 1024; // 1 KB
+                            // Fits the maximum valid payload (pattern 512 + text 1024 + replace 1024
+                            // chars, plus JSON overhead and multi-byte UTF-8) while still bounding
+                            // request size for DoS protection.
+                            options.Limits.MaxRequestBodySize = 8192; // 8 KB
                         });
                 });
     }

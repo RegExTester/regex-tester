@@ -66,13 +66,24 @@ const apiFiles = [
 ];
 
 // Parse all @openapi blocks and merge into the definition
-const doc = { ...definition };
+const doc = { ...definition, paths: {} };
 for (const filePath of apiFiles) {
   const content = readFileSync(filePath, 'utf-8');
   for (const yamlBlock of extractOpenApiBlocks(content)) {
     const parsed = yaml.load(yamlBlock);
     if (parsed && typeof parsed === 'object') {
-      deepMerge(doc, parsed);
+      // Controller blocks author bare path keys (e.g. `/api/version:`) rather than nesting
+      // under `paths:`; fold those into `doc.paths` so the generated document is valid OpenAPI.
+      const normalized = {};
+      for (const key of Object.keys(parsed)) {
+        if (key.startsWith('/')) {
+          normalized.paths = normalized.paths || {};
+          normalized.paths[key] = parsed[key];
+        } else {
+          normalized[key] = parsed[key];
+        }
+      }
+      deepMerge(doc, normalized);
     }
   }
 }

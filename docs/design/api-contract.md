@@ -78,6 +78,7 @@ GET /api/capabilities HTTP/1.1
     "patternMaxLength": 512,
     "textMaxLength": 1024,
     "replaceMaxLength": 1024,
+    "maxRequestBodyBytes": 8192,
     "regexTimeoutMs": 15000,
     "requestTimeoutMs": 5000
   },
@@ -135,6 +136,17 @@ A request with an over-length field returns HTTP 400:
   "title": "One or more validation errors occurred.",
   "status": 400,
   "errors": { "pattern": ["The field pattern must be a string with a maximum length of 512."] }
+}
+```
+
+A request body larger than `maxRequestBodyBytes` (8192) returns HTTP 413, checked *before* the
+body is parsed or any field-level `maxLength` is validated:
+
+```json
+{
+  "type": "https://tools.ietf.org/html/rfc9110#section-15.5.11",
+  "title": "Request body too large.",
+  "status": 413
 }
 ```
 
@@ -202,6 +214,31 @@ implementation language:
   underlying regex engine/library call.
 - CORS MUST allow `https://regextester.github.io`, plus any additional origin(s) listed in the
   backend's `ALLOW_CORS` configuration, plus localhost origins in development.
+- A raw request body larger than `maxRequestBodyBytes` MUST return **HTTP 413** with an RFC 9457
+  `ProblemDetails` JSON body (`type`, `title`, `status: 413`) — never HTML, never an empty body.
+  This check MUST happen before the body is parsed or any field's `maxLength` is validated, so a
+  body that is too large is always reported as 413, never 400, even if one of its fields would
+  also have failed field-level validation.
+
+### Further clarifications
+
+These numbered rules were added after a conformance-suite run surfaced ambiguity or bugs in all
+three backends. They are contractual MUST rules, equal in force to the bullets above:
+
+1. **All matches, regardless of options.** `POST /api/regex` MUST return every non-overlapping
+   match found in `text`, regardless of which option bits are set. Engine-specific "global" flags
+   (e.g. JavaScript's `g`, bit 4096) only affect how a *native* client of that engine would iterate
+   matches — they are presentation-level and MUST NOT change how many matches this API returns.
+   A backend that returns only the first match unless a "global" bit is set is non-conformant.
+2. **Empty pattern.** When `pattern` is `null` or the empty string `""`, the response MUST be
+   `{ "error": null, "replace": null, "matches": [] }`. Backends MUST NOT treat an empty pattern
+   as matching a zero-length string at every character position (which would otherwise produce one
+   zero-length match per index in `text`).
+3. **No wildcard CORS for disallowed origins.** A backend MUST NOT respond with
+   `Access-Control-Allow-Origin: *` for an `Origin` that is not in its allow-list, in **any**
+   environment, including Development. A development build MAY additionally permit localhost
+   origins, but only by reflecting the specific requesting origin back in
+   `Access-Control-Allow-Origin` — never by emitting a blanket `*`.
 
 ## 5. Limits
 
@@ -210,12 +247,23 @@ implementation language:
 | `pattern` max length | 512 characters |
 | `text` max length | 1024 characters |
 | `replace` max length | 1024 characters |
+| `maxRequestBodyBytes` | 8192 bytes |
 | Regex evaluation timeout | 15000 ms |
 | HTTP request timeout | 5000 ms |
 
 These are the *default* limits reported by every backend's `/api/capabilities`. An engine MUST NOT
 report looser limits than these without also updating this document and the OpenAPI spec, since the
 frontend and conformance suite validate against these exact numbers.
+
+`maxRequestBodyBytes` bounds the size of the raw HTTP request body and is checked before the body
+is parsed or any field is validated (§4). It exists as a defense against oversized requests
+independent of, and enforced *before*, the per-field `maxLength` checks above. It MUST be
+comfortably larger than `patternMaxLength + textMaxLength + replaceMaxLength` (512 + 1024 + 1024 =
+2560) to leave headroom for JSON structural overhead (field names, quotes, braces, the `options`
+number) and for multi-byte UTF-8 expansion (a single character can be up to 4 bytes). If the body
+limit were at or below that sum, the maximum *valid* payload would itself be rejected with 413
+before ever reaching field validation — which is exactly the bug this limit fixes, not reintroduces.
+8192 was chosen as a round number with generous headroom over the 2560-character worst case.
 
 ## 6. Adding a new backend (e.g. Rust) — checklist
 
@@ -229,8 +277,9 @@ frontend and conformance suite validate against these exact numbers.
 4. Map every flag in the registry (§3) that the chosen regex library supports, and declare the full
    registry (including unsupported flags) via `/api/capabilities.options`.
 5. Follow every behavioural MUST rule in §4 — in particular, no null-omission, `matches: []` never
-   `null`, HTTP 200 for regex errors/timeouts, HTTP 400 ProblemDetails for validation, and the 5s
-   timeout returning HTTP 200.
+   `null`, HTTP 200 for regex errors/timeouts, HTTP 400 ProblemDetails for validation, HTTP 413
+   ProblemDetails (before body parsing/field validation) when the body exceeds
+   `maxRequestBodyBytes`, and the 5s timeout returning HTTP 200.
 6. Pass the language-agnostic conformance suite (`tests/contract/`, see TASK-06) run against the new
    backend's `BASE_URL`.
 7. Add a `ui-vuejs` engine entry (`src/config.<engine>.js`, registered in `src/config.js`) and a

@@ -14,8 +14,8 @@ namespace RegExTester.Api.DotNet.Models
         /// </summary>
         public string Replace { get; set; }
 
-        /// <summary>All matches found in the input text. Empty array when there are no matches.</summary>
-        public List<MatchResult> Matches { get; set; }
+        /// <summary>All matches found in the input text. Empty array when there are no matches; never <c>null</c>.</summary>
+        public List<MatchResult> Matches { get; set; } = new List<MatchResult>();
     }
 
     /// <summary>A single regex match within the input text.</summary>

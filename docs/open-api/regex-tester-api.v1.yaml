@@ -104,8 +104,12 @@ paths:
         find-and-replace operation.
 
         Regex compile errors and the 15-second regex evaluation timeout are reported as HTTP 200
-        with `error` populated — they are not HTTP error responses. Only request validation
-        failures (e.g. a field exceeding its `maxLength`) produce HTTP 400.
+        with `error` populated — they are not HTTP error responses. Two distinct request-side
+        rejections exist: the raw request body MUST NOT exceed `maxRequestBodyBytes` (reported by
+        `/api/capabilities.limits`), which produces HTTP 413 and is checked before the body is
+        parsed; a body within that limit whose individual `pattern`/`text`/`replace` field exceeds
+        its own `maxLength` produces HTTP 400. See `docs/design/api-contract.md` §5 for why the
+        body limit and the field limits are two separate checks.
       tags:
         - RegEx
       requestBody:
@@ -134,6 +138,15 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ProblemDetails"
+        "413":
+          description: |
+            The raw request body exceeded `maxRequestBodyBytes`. Always a ProblemDetails JSON
+            body (`type`, `title`, `status: 413`) — never HTML and never an empty body — and
+            always returned before per-field validation runs.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
 
 components:
   schemas:
@@ -144,17 +157,25 @@ components:
         pattern:
           type: ["string", "null"]
           maxLength: 512
-          description: The regular expression pattern to evaluate.
+          description: |
+            The regular expression pattern to evaluate. Rejected with HTTP 400 if it exceeds 512
+            characters, but only once the raw request body is within `maxRequestBodyBytes` — see
+            `maxRequestBodyBytes` on the `Limits` schema.
         text:
           type: ["string", "null"]
           maxLength: 1024
-          description: The input text to search.
+          description: |
+            The input text to search. Rejected with HTTP 400 if it exceeds 1024 characters, but
+            only once the raw request body is within `maxRequestBodyBytes` — see
+            `maxRequestBodyBytes` on the `Limits` schema.
         replace:
           type: ["string", "null"]
           maxLength: 1024
           description: |
             Optional replacement string. When supplied, the response `replace` field contains the
-            result of applying it to `text` using `pattern`.
+            result of applying it to `text` using `pattern`. Rejected with HTTP 400 if it exceeds
+            1024 characters, but only once the raw request body is within `maxRequestBodyBytes` —
+            see `maxRequestBodyBytes` on the `Limits` schema.
         options:
           type: integer
           format: int32
@@ -408,6 +429,7 @@ components:
           patternMaxLength: 512
           textMaxLength: 1024
           replaceMaxLength: 1024
+          maxRequestBodyBytes: 8192
           regexTimeoutMs: 15000
           requestTimeoutMs: 5000
         features:
@@ -433,6 +455,7 @@ components:
         - patternMaxLength
         - textMaxLength
         - replaceMaxLength
+        - maxRequestBodyBytes
         - regexTimeoutMs
         - requestTimeoutMs
       properties:
@@ -448,6 +471,16 @@ components:
           type: integer
           format: int32
           description: Maximum length, in characters, accepted for `replace`.
+        maxRequestBodyBytes:
+          type: integer
+          format: int32
+          description: |
+            Maximum size, in bytes, of the raw HTTP request body. Checked before the body is
+            parsed or any individual field's `maxLength` is validated, so a body exceeding this
+            value MUST return HTTP 413 rather than HTTP 400. MUST be comfortably larger than the
+            sum of `patternMaxLength` + `textMaxLength` + `replaceMaxLength` (plus JSON overhead
+            and multi-byte UTF-8 expansion), otherwise the field-level `maxLength` limits become
+            unreachable dead code. The contractual value is 8192.
         regexTimeoutMs:
           type: integer
           format: int32
@@ -460,6 +493,7 @@ components:
         patternMaxLength: 512
         textMaxLength: 1024
         replaceMaxLength: 1024
+        maxRequestBodyBytes: 8192
         regexTimeoutMs: 15000
         requestTimeoutMs: 5000
 
@@ -525,12 +559,15 @@ components:
 
     ProblemDetails:
       type: object
-      description: RFC 9457 problem details returned for request validation failures (HTTP 400).
+      description: |
+        RFC 9457 problem details returned for request-side rejections: HTTP 400 (per-field
+        validation, `errors` populated) and HTTP 413 (request body exceeded
+        `maxRequestBodyBytes`, `errors` omitted since the rejection is not attributable to a
+        specific field).
       required:
         - type
         - title
         - status
-        - errors
       properties:
         type:
           type: string
@@ -541,10 +578,10 @@ components:
         status:
           type: integer
           format: int32
-          description: The HTTP status code.
+          description: The HTTP status code (400 or 413).
         errors:
           type: object
-          description: Validation errors keyed by field name.
+          description: Validation errors keyed by field name. Present for HTTP 400; omitted for HTTP 413.
           additionalProperties:
             type: array
             items:
