@@ -1,0 +1,512 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "RegEx Tester API",
+    "description": "REST API for testing Python regular expressions using the stdlib `re` module.",
+    "version": "1.0"
+  },
+  "paths": {
+    "/": {
+      "get": {
+        "tags": [
+          "Home"
+        ],
+        "summary": "Redirect to the frontend",
+        "operationId": "get_root__get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/capabilities": {
+      "get": {
+        "tags": [
+          "Capabilities"
+        ],
+        "summary": "Report engine identity and the options, limits, and features this engine supports",
+        "operationId": "get_capabilities_route_api_capabilities_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Capabilities"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/regex": {
+      "post": {
+        "tags": [
+          "RegEx"
+        ],
+        "summary": "Run a regular expression against input text",
+        "operationId": "post_regex_api_regex_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Input"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegexResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Capabilities": {
+        "properties": {
+          "engineKey": {
+            "type": "string",
+            "title": "Enginekey"
+          },
+          "engineName": {
+            "type": "string",
+            "title": "Enginename"
+          },
+          "contractVersion": {
+            "type": "string",
+            "title": "Contractversion"
+          },
+          "runtime": {
+            "$ref": "#/components/schemas/Runtime"
+          },
+          "defaultOptions": {
+            "type": "integer",
+            "title": "Defaultoptions"
+          },
+          "limits": {
+            "$ref": "#/components/schemas/Limits"
+          },
+          "features": {
+            "$ref": "#/components/schemas/Features"
+          },
+          "options": {
+            "items": {
+              "$ref": "#/components/schemas/CapabilityOption"
+            },
+            "type": "array",
+            "title": "Options"
+          }
+        },
+        "type": "object",
+        "required": [
+          "engineKey",
+          "engineName",
+          "contractVersion",
+          "runtime",
+          "defaultOptions",
+          "limits",
+          "features",
+          "options"
+        ],
+        "title": "Capabilities"
+      },
+      "CapabilityOption": {
+        "properties": {
+          "value": {
+            "type": "integer",
+            "title": "Value"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "flag": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Flag"
+          },
+          "supported": {
+            "type": "boolean",
+            "title": "Supported"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          }
+        },
+        "type": "object",
+        "required": [
+          "value",
+          "name",
+          "supported",
+          "description"
+        ],
+        "title": "CapabilityOption"
+      },
+      "CaptureResult": {
+        "properties": {
+          "index": {
+            "type": "integer",
+            "title": "Index"
+          },
+          "length": {
+            "type": "integer",
+            "title": "Length"
+          },
+          "value": {
+            "type": "string",
+            "title": "Value"
+          }
+        },
+        "type": "object",
+        "required": [
+          "index",
+          "length",
+          "value"
+        ],
+        "title": "CaptureResult"
+      },
+      "Features": {
+        "properties": {
+          "replace": {
+            "type": "boolean",
+            "title": "Replace"
+          },
+          "namedGroups": {
+            "type": "boolean",
+            "title": "Namedgroups"
+          },
+          "captures": {
+            "type": "string",
+            "title": "Captures"
+          }
+        },
+        "type": "object",
+        "required": [
+          "replace",
+          "namedGroups",
+          "captures"
+        ],
+        "title": "Features"
+      },
+      "GroupResult": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "index": {
+            "type": "integer",
+            "title": "Index"
+          },
+          "length": {
+            "type": "integer",
+            "title": "Length"
+          },
+          "value": {
+            "type": "string",
+            "title": "Value"
+          },
+          "captures": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/CaptureResult"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Captures"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "index",
+          "length",
+          "value"
+        ],
+        "title": "GroupResult"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "Input": {
+        "properties": {
+          "pattern": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 512
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pattern"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 1024
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Text"
+          },
+          "replace": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 1024
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Replace"
+          },
+          "options": {
+            "type": "integer",
+            "title": "Options",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "title": "Input",
+        "description": "Request body for POST /api/regex. No property is required."
+      },
+      "Limits": {
+        "properties": {
+          "patternMaxLength": {
+            "type": "integer",
+            "title": "Patternmaxlength"
+          },
+          "textMaxLength": {
+            "type": "integer",
+            "title": "Textmaxlength"
+          },
+          "replaceMaxLength": {
+            "type": "integer",
+            "title": "Replacemaxlength"
+          },
+          "regexTimeoutMs": {
+            "type": "integer",
+            "title": "Regextimeoutms"
+          },
+          "requestTimeoutMs": {
+            "type": "integer",
+            "title": "Requesttimeoutms"
+          },
+          "maxRequestBodyBytes": {
+            "type": "integer",
+            "title": "Maxrequestbodybytes"
+          }
+        },
+        "type": "object",
+        "required": [
+          "patternMaxLength",
+          "textMaxLength",
+          "replaceMaxLength",
+          "regexTimeoutMs",
+          "requestTimeoutMs",
+          "maxRequestBodyBytes"
+        ],
+        "title": "Limits"
+      },
+      "MatchResult": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "index": {
+            "type": "integer",
+            "title": "Index"
+          },
+          "length": {
+            "type": "integer",
+            "title": "Length"
+          },
+          "value": {
+            "type": "string",
+            "title": "Value"
+          },
+          "groups": {
+            "items": {
+              "$ref": "#/components/schemas/GroupResult"
+            },
+            "type": "array",
+            "title": "Groups"
+          },
+          "captures": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/CaptureResult"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Captures"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "index",
+          "length",
+          "value"
+        ],
+        "title": "MatchResult"
+      },
+      "RegexResult": {
+        "properties": {
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "replace": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Replace"
+          },
+          "matches": {
+            "items": {
+              "$ref": "#/components/schemas/MatchResult"
+            },
+            "type": "array",
+            "title": "Matches"
+          }
+        },
+        "type": "object",
+        "title": "RegexResult"
+      },
+      "Runtime": {
+        "properties": {
+          "os": {
+            "type": "string",
+            "title": "Os"
+          },
+          "framework": {
+            "type": "string",
+            "title": "Framework"
+          }
+        },
+        "type": "object",
+        "required": [
+          "os",
+          "framework"
+        ],
+        "title": "Runtime",
+        "description": "Diagnostic host/runtime information. Informational only; MUST NOT be used by clients to\ndrive frontend behaviour or feature detection."
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      }
+    }
+  }
+}

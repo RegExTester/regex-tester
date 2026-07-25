@@ -13,7 +13,7 @@ This contract exists so that adding a new regex engine backend — or a new fron
 exercise: any client that speaks this contract works against any engine that implements it,
 without engine-specific branching.
 
-- `contractVersion` is reported as `"1.0"` by both `GET /api/version` and `GET /api/capabilities`.
+- `contractVersion` is reported as `"1.0"` by `GET /api/capabilities`.
 - The contract follows semantic-ish versioning at the major.minor level: a **breaking change**
   (removing/renaming a field, changing a type, changing behaviour a client could reasonably depend
   on) bumps the major version (`"2.0"`); additive, backward-compatible changes (a new optional
@@ -36,33 +36,11 @@ HTTP/1.1 302 Found
 Location: https://regextester.github.io/
 ```
 
-### `GET /api/version`
-
-Reports engine identity and runtime version, for diagnostics/support.
-
-```http
-GET /api/version HTTP/1.1
-```
-
-```json
-{
-  "engineKey": "NODEJS",
-  "engineName": "Node.js",
-  "contractVersion": "1.0",
-  "os": "linux x64",
-  "framework": "Node.js v22.4.0",
-  "osDescription": "linux x64",
-  "frameworkDescription": "Node.js v22.4.0"
-}
-```
-
-`osDescription` / `frameworkDescription` are deprecated aliases api-nodejs retains for one release;
-new backends MUST NOT emit them.
-
 ### `GET /api/capabilities`
 
-Reports the limits, features, and option flags this engine supports, so the frontend can render
-option checkboxes dynamically instead of hard-coding a list per engine. Cacheable for 24 hours.
+Reports engine identity, runtime, the limits, features, and option flags this engine supports, so
+the frontend can render option checkboxes dynamically instead of hard-coding a list per engine.
+Cacheable for 24 hours.
 
 ```http
 GET /api/capabilities HTTP/1.1
@@ -73,6 +51,10 @@ GET /api/capabilities HTTP/1.1
   "engineKey": "PYTHON",
   "engineName": "Python",
   "contractVersion": "1.0",
+  "runtime": {
+    "os": "Linux 6.5.0 x86_64",
+    "framework": "Python 3.13.0"
+  },
   "defaultOptions": 3,
   "limits": {
     "patternMaxLength": 512,
@@ -92,6 +74,9 @@ GET /api/capabilities HTTP/1.1
 
 `options` MUST list **every** flag in the registry (§3), not just the ones this engine supports, so
 the frontend can render unsupported flags as disabled rather than omit them.
+
+`runtime` (`os`, `framework`) is diagnostic/support information only. It MUST NOT be used by any
+client to drive frontend behaviour or feature detection — use `features`/`options` for that.
 
 ### `POST /api/regex`
 
@@ -267,11 +252,10 @@ before ever reaching field validation — which is exactly the bug this limit fi
 
 ## 6. Adding a new backend (e.g. Rust) — checklist
 
-1. Implement all four endpoints: `GET /`, `GET /api/version`, `GET /api/capabilities`,
-   `POST /api/regex`, matching the schemas in
-   [regex-tester-api.v1.yaml](../open-api/regex-tester-api.v1.yaml) exactly.
+1. Implement all three endpoints: `GET /`, `GET /api/capabilities`, `POST /api/regex`, matching
+   the schemas in [regex-tester-api.v1.yaml](../open-api/regex-tester-api.v1.yaml) exactly.
 2. Choose and report a new, stable, uppercase `engineKey` (e.g. `RUST`) and a human-readable
-   `engineName` (e.g. `Rust`) from both `/api/version` and `/api/capabilities`.
+   `engineName` (e.g. `Rust`) from `/api/capabilities`.
 3. Serve the canonical spec at `GET /openapi/v1.json` and an interactive explorer at
    `GET /scalar/v1`.
 4. Map every flag in the registry (§3) that the chosen regex library supports, and declare the full

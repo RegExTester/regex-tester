@@ -76,10 +76,10 @@
             </a>
           </h6>
           <div class="form-check" v-for="option in options" :key="option.value">
-            <label class="form-check-label" :title="option.disabled ? (option.description || 'Not supported by this engine') : null">
+            <label class="form-check-label" :title="option.description">
               <input type="checkbox" class="form-check-input"
-                v-model="option.checked" :disabled="option.disabled" @change="delaySubmit()">
-              <code v-if="option.flag" class="option-flag">{{ option.flag }}</code> {{ option.name }}
+                v-model="option.checked" @change="delaySubmit()">
+              {{ option.name }}
             </label>
           </div>
         </div>
@@ -193,10 +193,10 @@
         <div class="col">
           <h6>Options</h6>
           <div class="form-check" v-for="option in options" :key="'m-' + option.value">
-            <label class="form-check-label" :title="option.disabled ? (option.description || 'Not supported by this engine') : null">
+            <label class="form-check-label" :title="option.description">
               <input type="checkbox" class="form-check-input"
-                v-model="option.checked" :disabled="option.disabled" @change="delaySubmit(500)">
-              <code v-if="option.flag" class="option-flag">{{ option.flag }}</code> {{ option.name }}
+                v-model="option.checked" @change="delaySubmit(500)">
+              {{ option.name }}
             </label>
           </div>
         </div>
@@ -241,25 +241,41 @@ function engineConfig(engineKey) {
 
 const options = ref([])
 
+// Bits from the last-known bitmask that belong to options the current engine does not expose.
+// Recomputed from scratch on every rebuild -- never accumulated across engine switches -- so a
+// bit stays parked here only while its owning option is hidden, and rejoins the rendered
+// checkboxes the moment an engine that supports it is selected again.
+let carriedBits = 0
+
 function currentBitmask() {
-  return options.value.reduce((sum, opt) => sum + (opt.checked ? opt.value : 0), 0)
+  return options.value.reduce((sum, opt) => sum + (opt.checked ? opt.value : 0), 0) | carriedBits
+}
+
+function computeCarriedBits(bitmask, renderedOptions) {
+  const exposedMask = renderedOptions.reduce((mask, opt) => mask | opt.value, 0)
+  return bitmask & ~exposedMask
 }
 
 // Bundled fallback: only the flags this engine's config file lists as supported.
 function rebuildOptions(engineKey, bitmask) {
   const src = engineConfig(engineKey).REGEX_OPTIONS
   options.value = Object.values(src).map(opt => ({
-    name: opt.Name, value: opt.Value, flag: opt.Flag || null, description: null,
-    checked: (bitmask & opt.Value) === opt.Value, disabled: false
+    name: opt.Name, value: opt.Value, description: null,
+    checked: (bitmask & opt.Value) === opt.Value
   }))
+  carriedBits = computeCarriedBits(bitmask, options.value)
 }
 
-// Live /api/capabilities: full flag registry, with unsupported flags shown disabled.
+// Live /api/capabilities: render only options this engine supports; bits belonging to
+// unsupported options are preserved in carriedBits instead of being dropped.
 function rebuildOptionsFromCapabilities(capsOptions, bitmask) {
-  options.value = (capsOptions || []).map(opt => ({
-    name: opt.name, value: opt.value, flag: opt.flag || null, description: opt.description || null,
-    checked: (bitmask & opt.value) === opt.value, disabled: !opt.supported
-  }))
+  options.value = (capsOptions || [])
+    .filter(opt => opt.supported === true)
+    .map(opt => ({
+      name: opt.name, value: opt.value, description: opt.description || null,
+      checked: (bitmask & opt.value) === opt.value
+    }))
+  carriedBits = computeCarriedBits(bitmask, options.value)
 }
 
 let debounceTimer = null
@@ -288,9 +304,8 @@ function apiConfig() {
   return engineConfig().API
 }
 
-const versionCache = {}
 const capabilitiesCache = {}
-const VERSION_CACHE_TTL = 10 * 60 * 1000 // 10 minutes
+const CAPABILITIES_CACHE_TTL = 10 * 60 * 1000 // 10 minutes
 const CAPABILITIES_FETCH_TIMEOUT = 5000 // ms; guards against a stalled/offline backend hanging forever
 
 function fetchWithTimeout(url, ms) {
@@ -301,7 +316,7 @@ function fetchWithTimeout(url, ms) {
 
 function fetchCapabilities(engineKey) {
   const cached = capabilitiesCache[engineKey]
-  if (cached && Date.now() - cached.at < VERSION_CACHE_TTL) {
+  if (cached && Date.now() - cached.at < CAPABILITIES_CACHE_TTL) {
     return Promise.resolve(cached.value)
   }
   return fetchWithTimeout(engineConfig(engineKey).API.CAPABILITIES, CAPABILITIES_FETCH_TIMEOUT)
@@ -316,8 +331,9 @@ function fetchCapabilities(engineKey) {
 }
 
 // Applies a live /api/capabilities response: rebuilds the option list (preserving whatever
-// bitmask was in effect before the fetch) and the pattern/text length limits. Never called
-// when the fetch failed -- callers fall back to the bundled config silently in that case.
+// bitmask was in effect before the fetch), the pattern/text length limits, and the engine
+// tooltip. Never called when the fetch failed -- callers fall back to the bundled config and
+// an 'offline' tooltip silently in that case.
 function applyCapabilities(engineKey, caps) {
   if (selectedEngine.value !== engineKey) return // stale response from a since-abandoned switch
 
@@ -330,35 +346,17 @@ function applyCapabilities(engineKey, caps) {
     textMaxLength:    caps.limits?.textMaxLength ?? 1024,
     replaceMaxLength: caps.limits?.replaceMaxLength ?? 1024,
   }
+
+  engine.value = caps.runtime?.framework || 'online'
 }
 
 function warmUpApiServer() {
   const key = selectedEngine.value
-  const cached = versionCache[key]
-  if (cached && Date.now() - cached.at < VERSION_CACHE_TTL) {
-    engine.value = cached.value
-  } else {
-    const previous = engine.value
-    engine.value = ''
-    fetch(apiConfig().INFO)
-      .then(r => {
-        if (r.status === 304) {
-          engine.value = previous || 'online'
-          return
-        }
-        if (!r.ok) throw new Error(r.statusText)
-        return r.json().then(data => {
-          engine.value = data.framework || data.frameworkDescription
-          versionCache[key] = { value: engine.value, at: Date.now() }
-        })
-      })
-      .catch(() => { engine.value = 'offline' })
-  }
+  engine.value = ''
 
-  // Folded into the same warm-up call so an engine switch costs at most one extra round trip.
   fetchCapabilities(key)
     .then(caps => applyCapabilities(key, caps))
-    .catch(() => { /* capabilities unavailable/timed out -- keep the bundled fallback already rendered */ })
+    .catch(() => { engine.value = 'offline' /* keep the bundled fallback option list already rendered */ })
 }
 
 function onEngineChange() {
@@ -393,7 +391,7 @@ function submit() {
 
   const encodedPattern  = encodeBase64(pattern.value)
   const encodedText     = encodeBase64(text.value)
-  const optionsBitmask  = options.value.reduce((sum, opt) => sum + (opt.checked ? opt.value : 0), 0)
+  const optionsBitmask  = currentBitmask()
   const engineIndex     = CONFIG.ENGINES[selectedEngine.value].Index
   const url = `/${encodedPattern}/${encodedText}/${optionsBitmask}/${engineIndex}`
 

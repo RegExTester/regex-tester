@@ -6,6 +6,8 @@
  * ones this engine supports, so the frontend can render unsupported flags as disabled rather than
  * omit them. Values 1-131072, skipping the permanently reserved 128.
  */
+import os from 'node:os';
+
 const OPTION_REGISTRY = [
   { value: 1, name: 'IgnoreCase', flag: 'i', supported: true, description: 'Case-insensitive matching.' },
   { value: 2, name: 'Multiline', flag: 'm', supported: true, description: '^ and $ match the start/end of each line rather than the whole input.' },
@@ -62,6 +64,10 @@ export function getCapabilities() {
     engineKey: ENGINE_KEY,
     engineName: ENGINE_NAME,
     contractVersion: CONTRACT_VERSION,
+    runtime: {
+      os: `${os.type()} ${os.release()} ${os.arch()}`,
+      framework: `Node.js ${process.version}`,
+    },
     defaultOptions: DEFAULT_OPTIONS,
     limits: LIMITS,
     features: FEATURES,

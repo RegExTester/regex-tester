@@ -1,10 +1,8 @@
 using Microsoft.AspNetCore.Mvc;
-using RegExTester.Api.DotNet.Models;
-using System.Runtime.InteropServices;
 
 namespace RegExTester.Api.DotNet.Controllers
 {
-    /// <summary>Utility endpoints for navigation and version information.</summary>
+    /// <summary>Utility endpoint for frontend navigation.</summary>
     [ApiController]
     [Route("/")]
     [Produces("application/json")]
@@ -17,26 +15,6 @@ namespace RegExTester.Api.DotNet.Controllers
         public RedirectResult Get()
         {
             return Redirect("https://regextester.github.io/");
-        }
-
-        /// <summary>Return engine identity and runtime version information for the host.</summary>
-        /// <remarks>Response is cached for 24 hours.</remarks>
-        /// <returns>Engine identity, contract version, OS description, and framework version string.</returns>
-        /// <response code="200">Version information.</response>
-        [HttpGet]
-        [Route("/api/version")]
-        [ResponseCache(Duration = 60*60*24)] // 1d
-        [ProducesResponseType(typeof(VersionResult), 200)]
-        public ActionResult Version()
-        {
-            return Json(new VersionResult
-            {
-                EngineKey = "DOTNET",
-                EngineName = ".Net",
-                ContractVersion = "1.0",
-                Os = RuntimeInformation.OSDescription,
-                Framework = RuntimeInformation.FrameworkDescription
-            });
         }
     }
 }

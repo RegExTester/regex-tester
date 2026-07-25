@@ -14,6 +14,9 @@ namespace RegExTester.Api.DotNet.Models
         /// <summary>The version of the shared API contract this engine implements.</summary>
         public string ContractVersion { get; set; }
 
+        /// <summary>Diagnostic host/runtime information for this engine.</summary>
+        public Runtime Runtime { get; set; }
+
         /// <summary>The bitmask the frontend should pre-select for this engine when no shared URL state is present.</summary>
         public int DefaultOptions { get; set; }
 
@@ -25,6 +28,19 @@ namespace RegExTester.Api.DotNet.Models
 
         /// <summary>Every option flag known to the shared contract, annotated with whether this engine actually supports it.</summary>
         public List<CapabilityOption> Options { get; set; }
+    }
+
+    /// <summary>
+    /// Diagnostic host/runtime information for the running engine. Informational only; MUST NOT
+    /// be used by clients to drive frontend behaviour or feature detection.
+    /// </summary>
+    public class Runtime
+    {
+        /// <summary>Operating system description of the running host.</summary>
+        public string Os { get; set; }
+
+        /// <summary>Runtime/framework version description.</summary>
+        public string Framework { get; set; }
     }
 
     /// <summary>Request size and timeout limits enforced by this engine.</summary>

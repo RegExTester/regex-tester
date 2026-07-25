@@ -9,13 +9,18 @@
     },
     "version": "v1"
   },
+  "servers": [
+    {
+      "url": "http://localhost:5000/"
+    }
+  ],
   "paths": {
     "/api/capabilities": {
       "get": {
         "tags": [
           "Capabilities"
         ],
-        "summary": "Return the limits, features, and option flags this engine supports.",
+        "summary": "Return engine identity, runtime, limits, features, and the option flags this engine supports.",
         "description": "Response is cached for 24 hours.",
         "responses": {
           "200": {
@@ -41,28 +46,7 @@
           "302": {
             "description": "HTTP 302 redirect to `https://regextester.github.io/`.",
             "content": {
-              "application/json": { }
-            }
-          }
-        }
-      }
-    },
-    "/api/version": {
-      "get": {
-        "tags": [
-          "Home"
-        ],
-        "summary": "Return engine identity and runtime version information for the host.",
-        "description": "Response is cached for 24 hours.",
-        "responses": {
-          "200": {
-            "description": "Version information.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/VersionResult"
-                }
-              }
+              "application/json": {}
             }
           }
         }
@@ -146,6 +130,10 @@
               "string"
             ],
             "description": "The version of the shared API contract this engine implements."
+          },
+          "runtime": {
+            "description": "Diagnostic host/runtime information for this engine.",
+            "$ref": "#/components/schemas/Runtime"
           },
           "defaultOptions": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
@@ -544,30 +532,9 @@
         "type": "integer",
         "description": "Bitwise flags that control regex matching behaviour.\r\nValues 0–1024 map directly to RegexOptions.\r\n`ShowCaptures` (32768) is a custom flag handled by the API before forwarding to .NET."
       },
-      "VersionResult": {
+      "Runtime": {
         "type": "object",
         "properties": {
-          "engineKey": {
-            "type": [
-              "null",
-              "string"
-            ],
-            "description": "Short, stable, uppercase identifier for this engine."
-          },
-          "engineName": {
-            "type": [
-              "null",
-              "string"
-            ],
-            "description": "Human-readable engine name."
-          },
-          "contractVersion": {
-            "type": [
-              "null",
-              "string"
-            ],
-            "description": "The version of the shared API contract this engine implements."
-          },
           "os": {
             "type": [
               "null",
@@ -583,7 +550,7 @@
             "description": "Runtime/framework version description."
           }
         },
-        "description": "Response body for the version endpoint."
+        "description": "Diagnostic host/runtime information for the running engine. Informational only; MUST NOT\r\nbe used by clients to drive frontend behaviour or feature detection."
       }
     }
   },

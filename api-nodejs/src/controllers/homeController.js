@@ -1,9 +1,4 @@
-import os from 'node:os';
 import { getCapabilities } from '../services/capabilities.js';
-
-let cachedVersion = null;
-let cachedAt = 0;
-const CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
 
 export const homeController = {
   /**
@@ -18,43 +13,6 @@ export const homeController = {
    */
   redirect(_req, res) {
     res.redirect(302, 'https://regextester.github.io/');
-  },
-
-  /**
-   * @openapi
-   * /api/version:
-   *   get:
-   *     tags: [Version]
-   *     summary: Return engine identity and runtime version information for the host.
-   *     description: |
-   *       Response is cached for 24 hours. `osDescription` and `frameworkDescription` are
-   *       deprecated aliases for `os` and `framework`, retained for one release.
-   *     responses:
-   *       200:
-   *         description: Version information.
-   *         content:
-   *           application/json:
-   *             schema:
-   *               $ref: '#/components/schemas/VersionResult'
-   */
-  version(_req, res) {
-    const now = Date.now();
-    if (!cachedVersion || now - cachedAt > CACHE_TTL) {
-      const osValue = `${os.type()} ${os.release()} ${os.arch()}`;
-      const frameworkValue = `Node.js ${process.version}`;
-      cachedVersion = {
-        engineKey: 'NODEJS',
-        engineName: 'Node.js',
-        contractVersion: '1.0',
-        os: osValue,
-        framework: frameworkValue,
-        // Deprecated aliases, retained for one release.
-        osDescription: osValue,
-        frameworkDescription: frameworkValue,
-      };
-      cachedAt = now;
-    }
-    res.json(cachedVersion);
   },
 
   /**

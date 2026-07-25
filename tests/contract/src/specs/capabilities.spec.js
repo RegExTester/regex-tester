@@ -16,6 +16,41 @@ describe('GET /api/capabilities', () => {
     expect(valid, JSON.stringify(errors)).toBe(true);
   });
 
+  it('reports a non-empty engineKey', async () => {
+    const res = await get('/api/capabilities');
+    const body = await res.json();
+
+    expect(typeof body.engineKey).toBe('string');
+    expect(body.engineKey.length).toBeGreaterThan(0);
+  });
+
+  it('reports contractVersion "1.0"', async () => {
+    const res = await get('/api/capabilities');
+    const body = await res.json();
+
+    expect(body.contractVersion).toBe('1.0');
+  });
+
+  it('reports a non-empty runtime.os and runtime.framework', async () => {
+    const res = await get('/api/capabilities');
+    const body = await res.json();
+
+    expect(typeof body.runtime.os).toBe('string');
+    expect(body.runtime.os.length).toBeGreaterThan(0);
+    expect(typeof body.runtime.framework).toBe('string');
+    expect(body.runtime.framework.length).toBeGreaterThan(0);
+  });
+
+  it('does not include the deprecated osDescription/frameworkDescription aliases', async () => {
+    const res = await get('/api/capabilities');
+    const body = await res.json();
+
+    expect(body.runtime).not.toHaveProperty('osDescription');
+    expect(body.runtime).not.toHaveProperty('frameworkDescription');
+    expect(body).not.toHaveProperty('osDescription');
+    expect(body).not.toHaveProperty('frameworkDescription');
+  });
+
   it('is cacheable for 24 hours', async () => {
     const res = await get('/api/capabilities');
     const cacheControl = res.headers.get('cache-control') ?? '';
@@ -32,7 +67,14 @@ describe('GET /api/capabilities', () => {
   });
 
   it('gives every option a power-of-two value', async () => {
-    const res = await get('/api/capabilities');
+   
+
+describe('GET /api/version (removed)', () => {
+  it('returns 404, since /api/version was merged into /api/capabilities', async () => {
+    const res = await get('/api/version');
+    expect(res.status).toBe(404);
+  });
+}); const res = await get('/api/capabilities');
     const body = await res.json();
 
     for (const option of body.options) {

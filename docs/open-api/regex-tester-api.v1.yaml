@@ -48,32 +48,15 @@ paths:
                 format: uri
               example: https://regextester.github.io/
 
-  /api/version:
-    get:
-      operationId: getVersion
-      summary: Report engine and runtime version information
-      description: |
-        Returns identifying information about the running engine and the contract version it
-        implements. Intended for diagnostics and support; not used by the frontend to drive
-        behaviour (use `/api/capabilities` for that).
-      tags:
-        - Version
-      responses:
-        "200":
-          description: Version information for the running backend.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/VersionResult"
-
   /api/capabilities:
     get:
       operationId: getCapabilities
-      summary: Report the options, limits, and features this engine supports
+      summary: Report engine identity and the options, limits, and features this engine supports
       description: |
-        Returns the set of option flags this engine understands (with descriptions and whether
-        each is actually supported vs. silently ignored), the request size/timeout limits it
-        enforces, and which optional features it implements. The frontend uses this to render
+        Returns identifying information about the running engine and the contract version it
+        implements, plus the set of option flags this engine understands (with descriptions and
+        whether each is actually supported vs. silently ignored), the request size/timeout limits
+        it enforces, and which optional features it implements. The frontend uses this to render
         option checkboxes dynamically rather than hard-coding an option list per engine.
 
         Responses MUST be cacheable for 24 hours; capabilities do not change between requests for
@@ -339,50 +322,23 @@ components:
         length: 5
         value: "world"
 
-    VersionResult:
+    Runtime:
       type: object
-      description: Response body for `GET /api/version`.
+      description: |
+        Diagnostic host/runtime information for the running engine. Informational only — clients
+        MUST NOT use `runtime` to drive frontend behaviour or feature detection; use the sibling
+        `features`/`options` fields on `Capabilities` for that.
       required:
-        - engineKey
-        - engineName
-        - contractVersion
         - os
         - framework
       properties:
-        engineKey:
-          type: string
-          description: Short, stable, uppercase identifier for the engine (e.g. `DOTNET`, `NODEJS`, `PYTHON`).
-          example: DOTNET
-        engineName:
-          type: string
-          description: Human-readable engine name.
-          example: ".Net"
-        contractVersion:
-          type: string
-          description: The version of this contract the engine implements.
-          example: "1.0"
         os:
           type: string
           description: Operating system description of the running host.
         framework:
           type: string
           description: Runtime/framework version description (e.g. the .NET or Node.js version).
-        osDescription:
-          type: string
-          deprecated: true
-          description: |
-            Deprecated alias for `os`. Retained by api-nodejs for one release for backward
-            compatibility; new backends MUST NOT emit this field.
-        frameworkDescription:
-          type: string
-          deprecated: true
-          description: |
-            Deprecated alias for `framework`. Retained by api-nodejs for one release for backward
-            compatibility; new backends MUST NOT emit this field.
       example:
-        engineKey: DOTNET
-        engineName: ".Net"
-        contractVersion: "1.0"
         os: "Microsoft Windows 10.0.22631"
         framework: ".NET 10.0.0"
 
@@ -393,6 +349,7 @@ components:
         - engineKey
         - engineName
         - contractVersion
+        - runtime
         - defaultOptions
         - limits
         - features
@@ -407,6 +364,8 @@ components:
         contractVersion:
           type: string
           description: The version of this contract the engine implements.
+        runtime:
+          $ref: "#/components/schemas/Runtime"
         defaultOptions:
           type: integer
           format: int32
@@ -424,6 +383,9 @@ components:
         engineKey: PYTHON
         engineName: Python
         contractVersion: "1.0"
+        runtime:
+          os: "Linux 6.5.0 x86_64"
+          framework: "Python 3.13.0"
         defaultOptions: 3
         limits:
           patternMaxLength: 512
@@ -597,9 +559,7 @@ components:
 tags:
   - name: Home
     description: Frontend redirect.
-  - name: Version
-    description: Engine and runtime version information.
   - name: Capabilities
-    description: Engine capability discovery.
+    description: Engine identity, runtime, and capability discovery.
   - name: RegEx
     description: Regex evaluation.

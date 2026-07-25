@@ -47,7 +47,7 @@ Single-file component using `<script setup>` (Composition API).
 
 **State (refs)**:
 - `selectedEngine` — `'DOTNET'`, `'NODEJS'`, or `'PYTHON'`
-- `engine` — version string from `/api/version` (or `'offline'`)
+- `engine` — engine framework string from `/api/capabilities`'s `runtime.framework` (or `'offline'`)
 - `pattern`, `text`, `replace` — form inputs
 - `result` — API response object
 - `highlightText` — HTML string with colored match spans
@@ -62,8 +62,8 @@ Single-file component using `<script setup>` (Composition API).
 
 **Key Functions**:
 - `apiConfig()` — returns `CONFIG.API[selectedEngine]` endpoints
-- `warmUpApiServer()` — fetches `/api/version` for selected engine
-- `onEngineChange()` — re-pings version endpoint + re-submits regex
+- `warmUpApiServer()` — fetches `/api/capabilities` for selected engine, reading `runtime.framework` for the engine tooltip
+- `onEngineChange()` — re-pings capabilities endpoint + re-submits regex
 - `delaySubmit(time?)` — debounces input (800ms default)
 - `submit()` — validates, updates URL, POSTs to selected engine, builds highlight HTML
 - `updateUrl(url)` — uses `router.replace()` + updates og: meta tags
@@ -83,7 +83,7 @@ ENGINES: {
 
 On selection change:
 1. `selectedEngine` ref updates
-2. `warmUpApiServer()` pings the new engine's `/api/version`
+2. `warmUpApiServer()` pings the new engine's `/api/capabilities` and reads `runtime.framework`
 3. Engine status icon shows loading → online/offline
 4. `fetchCapabilities()` requests the new engine's `/api/capabilities` (5s timeout, 10-minute in-memory cache per engine) and, on success, rebuilds the option checkboxes to match exactly what that engine supports
 5. `delaySubmit()` re-runs the current regex against the new engine

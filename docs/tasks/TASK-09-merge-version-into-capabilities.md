@@ -6,7 +6,7 @@
 | **Depends on** | TASK-08 |
 | **Blocks** | TASK-10 |
 | **Plan** | [docs/plan/2026-07-25-api-contract-and-python-backend.md](../plan/2026-07-25-api-contract-and-python-backend.md) |
-| **Status** | Not started |
+| **Status** | Done |
 
 ## Context
 

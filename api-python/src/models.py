@@ -50,10 +50,10 @@ class RegexResult(BaseModel):
     matches: list[MatchResult] = Field(default_factory=list)
 
 
-class VersionResult(BaseModel):
-    engineKey: str
-    engineName: str
-    contractVersion: str
+class Runtime(BaseModel):
+    """Diagnostic host/runtime information. Informational only; MUST NOT be used by clients to
+    drive frontend behaviour or feature detection."""
+
     os: str
     framework: str
 
@@ -85,6 +85,7 @@ class Capabilities(BaseModel):
     engineKey: str
     engineName: str
     contractVersion: str
+    runtime: Runtime
     defaultOptions: int
     limits: Limits
     features: Features

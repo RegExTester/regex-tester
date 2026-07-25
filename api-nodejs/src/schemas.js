@@ -156,36 +156,18 @@
  *             All matches found in the input text. MUST be `[]` (never `null`), including on
  *             error, timeout, or no-match.
  *
- *     VersionResult:
+ *     Runtime:
  *       type: object
- *       description: Response body for `GET /api/version`.
+ *       description: |
+ *         Diagnostic host/runtime information for the running engine. Informational only; MUST
+ *         NOT be used by clients to drive frontend behaviour or feature detection.
  *       properties:
- *         engineKey:
- *           type: string
- *           description: Short, stable, uppercase identifier for the engine.
- *           example: NODEJS
- *         engineName:
- *           type: string
- *           description: Human-readable engine name.
- *           example: Node.js
- *         contractVersion:
- *           type: string
- *           description: The version of the contract this engine implements.
- *           example: "1.0"
  *         os:
  *           type: string
  *           description: Operating system description of the running host.
  *         framework:
  *           type: string
  *           description: Runtime/framework version description.
- *         osDescription:
- *           type: string
- *           deprecated: true
- *           description: Deprecated alias for `os`, retained for one release for backward compatibility.
- *         frameworkDescription:
- *           type: string
- *           deprecated: true
- *           description: Deprecated alias for `framework`, retained for one release for backward compatibility.
  *
  *     Limits:
  *       type: object
@@ -274,6 +256,8 @@
  *           type: string
  *           description: The version of the contract this engine implements.
  *           example: "1.0"
+ *         runtime:
+ *           $ref: '#/components/schemas/Runtime'
  *         defaultOptions:
  *           type: integer
  *           format: int32
@@ -318,7 +302,6 @@
  *
  * tags:
  *   - name: Home
- *   - name: Version
  *   - name: Capabilities
  *   - name: RegEx
  */

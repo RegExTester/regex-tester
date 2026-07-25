@@ -24,7 +24,7 @@ api-python/
 │   ├── models.py                   # Pydantic request/response models mirroring the v1 contract schemas
 │   ├── options.py                  # Option flag registry and bitmask -> `re` flag mapping
 │   ├── routers/
-│   │   ├── home.py                 # GET / (redirect), GET /api/version, GET /api/capabilities
+│   │   ├── home.py                 # GET / (redirect), GET /api/capabilities
 │   │   └── regex.py                # POST /api/regex
 │   ├── services/
 │   │   ├── regex_processor.py      # Core `re`-based matching/replace engine, 15s deadline
@@ -48,24 +48,24 @@ schemas.
 
 302 redirect to `https://regextester.github.io/`.
 
-### GET /api/version
+### GET /api/capabilities
 
-Returns engine identity and runtime version info (cached 24h in-process).
+Returns engine identity, runtime, limits, features, and the full option flag registry
+(`Cache-Control: public, max-age=86400`).
 
 ```json
 {
   "engineKey": "PYTHON",
   "engineName": "Python",
   "contractVersion": "1.0",
-  "os": "Linux 6.5.0 x86_64",
-  "framework": "Python 3.13.0"
+  "runtime": {
+    "os": "Linux 6.5.0 x86_64",
+    "framework": "Python 3.13.0"
+  }
 }
 ```
 
-### GET /api/capabilities
-
-Returns limits, features, and the full option flag registry (`Cache-Control: public,
-max-age=86400`). `features.captures` is `"single"` — see §12.
+`features.captures` is `"single"` — see §12.
 
 ### POST /api/regex
 

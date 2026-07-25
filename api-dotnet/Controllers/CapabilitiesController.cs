@@ -1,10 +1,11 @@
 using Microsoft.AspNetCore.Mvc;
 using RegExTester.Api.DotNet.Models;
 using System.Linq;
+using System.Runtime.InteropServices;
 
 namespace RegExTester.Api.DotNet.Controllers
 {
-    /// <summary>Reports the limits, features, and option flags this engine supports.</summary>
+    /// <summary>Reports engine identity, runtime, limits, features, and option flags this engine supports.</summary>
     [ApiController]
     [Route("/api/capabilities")]
     [Produces("application/json")]
@@ -17,7 +18,7 @@ namespace RegExTester.Api.DotNet.Controllers
             (int)RegExTesterOptions.ExplicitCapture |
             (int)RegExTesterOptions.NonBacktracking;
 
-        /// <summary>Return the limits, features, and option flags this engine supports.</summary>
+        /// <summary>Return engine identity, runtime, limits, features, and the option flags this engine supports.</summary>
         /// <remarks>Response is cached for 24 hours.</remarks>
         /// <returns>Capability description for this backend.</returns>
         /// <response code="200">Capability description.</response>
@@ -31,6 +32,11 @@ namespace RegExTester.Api.DotNet.Controllers
                 EngineKey = "DOTNET",
                 EngineName = ".Net",
                 ContractVersion = "1.0",
+                Runtime = new Runtime
+                {
+                    Os = RuntimeInformation.OSDescription,
+                    Framework = RuntimeInformation.FrameworkDescription
+                },
                 DefaultOptions = DefaultOptionsMask,
                 Limits = new Limits
                 {

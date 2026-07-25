@@ -70,8 +70,7 @@ the new schema automatically.
 | Spec | Covers |
 |---|---|
 | `redirect.spec.js` | `GET /` → 302 to the hosted frontend |
-| `version.spec.js` | `GET /api/version` → `VersionResult` |
-| `capabilities.spec.js` | `GET /api/capabilities` → `Capabilities`, caching, flag registry invariants |
+| `capabilities.spec.js` | `GET /api/capabilities` → `Capabilities` (incl. `runtime`), caching, flag registry invariants, and a regression check that `GET /api/version` now 404s |
 | `regex-match.spec.js` | Basic matching, no-match, empty pattern |
 | `regex-groups.spec.js` | Named and numbered capture groups |
 | `regex-captures.spec.js` | `ShowCaptures` on/off, single-vs-multi capture engines |

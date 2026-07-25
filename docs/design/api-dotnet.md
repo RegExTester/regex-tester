@@ -19,7 +19,7 @@ api-dotnet/
 ├── Program.cs                      # Entry point, Kestrel MaxRequestBodySize (8192 bytes)
 ├── Startup.cs                      # Middleware pipeline & DI
 ├── Controllers/
-│   ├── HomeController.cs           # GET / (redirect), GET /api/version
+│   ├── HomeController.cs           # GET / (redirect)
 │   ├── CapabilitiesController.cs   # GET /api/capabilities
 │   └── RegexController.cs          # POST /api/regex
 ├── Services/
@@ -29,8 +29,7 @@ api-dotnet/
 │   ├── Input.cs                    # Request DTO
 │   ├── RegexResult.cs              # Response DTOs (RegexResult, MatchResult, GroupResult, CaptureResult)
 │   ├── RegExTesterOptions.cs       # Bitwise flags enum + shared option registry
-│   ├── Capabilities.cs             # CapabilitiesResult, Limits, Features, CapabilityOption DTOs
-│   └── VersionResult.cs            # /api/version response DTO
+│   └── Capabilities.cs             # CapabilitiesResult, Runtime, Limits, Features, CapabilityOption DTOs
 ├── appsettings.json                # Production config
 ├── appsettings.Development.json    # Dev config
 └── RegExTester.Api.DotNet.csproj   # Project file
@@ -42,26 +41,12 @@ api-dotnet/
 
 302 redirect to `https://regextester.github.io/`.
 
-### GET /api/version
-
-Returns engine identity and runtime version info. Response cached for 24 hours.
-
-```json
-{
-  "engineKey": "DOTNET",
-  "engineName": ".Net",
-  "contractVersion": "1.0",
-  "os": "Microsoft Windows 10.0.26200",
-  "framework": ".NET 10.0.0"
-}
-```
-
 ### GET /api/capabilities
 
-Reports limits, features, and the full option flag registry (cached 24h). `features.captures` is
-`"multi"` — `System.Text.RegularExpressions.Group.Captures` retains every capture of a repeated
-group, unlike api-nodejs/api-python. See [api-contract.md](api-contract.md) for the full response
-shape.
+Reports engine identity, runtime (`os`, `framework`), limits, features, and the full option flag
+registry (cached 24h). `features.captures` is `"multi"` —
+`System.Text.RegularExpressions.Group.Captures` retains every capture of a repeated group, unlike
+api-nodejs/api-python. See [api-contract.md](api-contract.md) for the full response shape.
 
 ### POST /api/regex
 

@@ -41,7 +41,6 @@ app.use('/scalar/v1', swaggerUi.serve, swaggerUi.setup(openApiDocument, {
 
 // Routes
 app.get('/', homeController.redirect);
-app.get('/api/version', homeController.version);
 app.get('/api/capabilities', homeController.capabilities);
 app.post('/api/regex', regexController.match);
 

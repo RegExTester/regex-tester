@@ -6,8 +6,6 @@
     <UserSecretsId>10101463-b4f1-4d65-941d-ca7a34cca54e</UserSecretsId>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <NoWarn>$(NoWarn);1591</NoWarn>
-    <OpenApiGenerateDocumentsOnBuild>true</OpenApiGenerateDocumentsOnBuild>
-    <OpenApiDocumentsDirectory>$(MSBuildProjectDirectory)/../docs/open-api/api-dotnet</OpenApiDocumentsDirectory>
   </PropertyGroup>
 
   <ItemGroup>
@@ -15,7 +13,6 @@
     <PackageReference Include="Microsoft.Azure.Cosmos" Version="3.48.0" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.*" />
-    <PackageReference Include="Microsoft.Extensions.ApiDescription.Server" Version="10.*" />
     <PackageReference Include="Scalar.AspNetCore" Version="2.*" />
   </ItemGroup>
 

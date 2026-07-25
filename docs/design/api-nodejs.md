@@ -20,7 +20,7 @@ api-nodejs/
 │   ├── openapi.js                  # OpenAPI doc generator (parses @openapi JSDoc)
 │   ├── schemas.js                  # Component schemas via @openapi JSDoc
 │   ├── controllers/
-│   │   ├── homeController.js       # GET / (redirect), GET /api/version, GET /api/capabilities
+│   │   ├── homeController.js       # GET / (redirect), GET /api/capabilities
 │   │   └── regexController.js      # POST /api/regex
 │   ├── services/
 │   │   ├── regexProcessor.js       # Core JS regex engine
@@ -38,25 +38,21 @@ Same contract as api-dotnet. See [api-dotnet design doc](api-dotnet.md) for full
 ### GET /
 302 redirect to `https://regextester.github.io/`.
 
-### GET /api/version
-Returns engine identity and runtime version info (cached 24h in-memory).
+### GET /api/capabilities
+Reports engine identity, runtime, limits, features, and the full option flag registry (cached 24h).
 ```json
 {
   "engineKey": "NODEJS",
   "engineName": "Node.js",
   "contractVersion": "1.0",
-  "os": "Windows_NT 10.0.26200 x64",
-  "framework": "Node.js v22.0.0",
-  "osDescription": "Windows_NT 10.0.26200 x64",
-  "frameworkDescription": "Node.js v22.0.0"
+  "runtime": {
+    "os": "Windows_NT 10.0.26200 x64",
+    "framework": "Node.js v22.0.0"
+  }
 }
 ```
-`osDescription`/`frameworkDescription` are deprecated aliases for `os`/`framework`, retained for
-one release for backward compatibility.
-
-### GET /api/capabilities
-Reports limits, features, and the full option flag registry (cached 24h). `features.captures` is
-`"single"` — the JS `RegExp`/`String.matchAll` API only exposes the last capture per group.
+`features.captures` is `"single"` — the JS `RegExp`/`String.matchAll` API only exposes the last
+capture per group.
 
 ### POST /api/regex
 Executes JavaScript regex. Same request/response schema as the other backends. `matches` is

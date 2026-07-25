@@ -77,11 +77,10 @@ OpenAPI 3.1.1 document).
   `ProblemDetails` JSON body — checked before the body is parsed or any field's `maxLength` is validated
 - An empty or `null` `pattern` returns `{ "error": null, "replace": null, "matches": [] }`
 
-**GET /api/capabilities** — Reports limits, features, and the full option flag registry (cached 24h) so the
-frontend can render option checkboxes dynamically instead of hard-coding a list per engine. See
-[docs/design/api-contract.md](docs/design/api-contract.md) for the full response shape.
-
-**GET /api/version** — Engine identity and runtime version info (cached 24h).
+**GET /api/capabilities** — Reports engine identity, `runtime` (`os`, `framework`), limits, features, and
+the full option flag registry (cached 24h) so the frontend can render option checkboxes dynamically
+instead of hard-coding a list per engine. See [docs/design/api-contract.md](docs/design/api-contract.md)
+for the full response shape.
 
 **GET /** — 302 redirect to `https://regextester.github.io/`.
 
@@ -119,7 +118,7 @@ frontend can render option checkboxes dynamically instead of hard-coding a list 
 
 - `src/main.py` — FastAPI app, CORS, middleware, exception handlers, uvicorn entry point
 - `src/routers/regex.py` — POST /api/regex
-- `src/routers/home.py` — GET /, GET /api/version, GET /api/capabilities
+- `src/routers/home.py` — GET /, GET /api/capabilities
 - `src/services/regex_processor.py` — stdlib `re` engine, 15s deadline
 - `src/services/capabilities.py` — GET /api/capabilities option registry and limits
 - `src/options.py` — bitmask -> `re` flag mapping and the shared option registry
