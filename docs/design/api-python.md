@@ -31,7 +31,7 @@ api-python/
 │   ├── services/
 │   │   ├── regex_processor.py      # Core `re`-based matching/replace engine, 15s deadline
 │   │   ├── capabilities.py         # Builds the GET /api/capabilities response body
-│   │   └── telemetry_service.py    # Cosmos DB telemetry, standardized across all three backends (see §12)
+│   │   └── telemetry_service.py    # Cosmos DB telemetry, standardized across all four backends (see §12)
 │   └── middleware/
 │       ├── max_body_size.py        # Enforces maxRequestBodyBytes (8192) -> HTTP 413
 │       └── request_timeout.py      # 5s HTTP timeout -> HTTP 200 with error body
@@ -192,15 +192,16 @@ FastAPI auto-generates the OpenAPI document from the Pydantic models and route d
 
 ## 12. Key Differences from the other backends
 
-| Aspect | api-dotnet | api-nodejs | api-python |
-|---|---|---|---|
-| Runtime | .NET 10.0 | Node.js 22+ | Python >= 3.11 |
-| Port | 5000/5001 | 5100 | 5200 |
-| Regex engine | `System.Text.RegularExpressions` | JavaScript `RegExp` | stdlib `re` |
-| `features.captures` | `"multi"` — `Group.Captures` retains every capture of a repeated group | `"single"` — only the last capture per group is exposed | `"single"` — `Match.groups()` only exposes the last capture per group, so `ShowCaptures` yields a single-element `captures` array |
-| Telemetry | Azure Cosmos DB | Azure Cosmos DB | Azure Cosmos DB — standardized 12-field document, same `/timestamp` partition key, fire-and-forget via FastAPI `BackgroundTasks` (see `telemetry_service.py`) |
-| OpenAPI generation | Built-in ASP.NET OpenApi | Custom JSDoc parser | Built-in FastAPI/Pydantic generation |
-| Named group syntax | `(?<name>...)` native | `(?<name>...)` native | Translated from `(?<name>...)` to `(?P<name>...)` before compiling |
+| Aspect | api-dotnet | api-nodejs | api-python | api-java |
+|---|---|---|---|---|
+| Runtime | .NET 10.0 | Node.js 22+ | Python >= 3.11 | Java 21 |
+| Port | 5000/5001 | 5100 | 5200 | 5300 |
+| Regex engine | `System.Text.RegularExpressions` | JavaScript `RegExp` | stdlib `re` | `java.util.regex` |
+| `features.captures` | `"multi"` — `Group.Captures` retains every capture of a repeated group | `"single"` — only the last capture per group is exposed | `"single"` — `Match.groups()` only exposes the last capture per group, so `ShowCaptures` yields a single-element `captures` array | `"single"` — `Matcher` only exposes the last capture per group |
+| Telemetry | Azure Cosmos DB | Azure Cosmos DB | Azure Cosmos DB — standardized 12-field document, same `/timestamp` partition key, fire-and-forget via FastAPI `BackgroundTasks` (see `telemetry_service.py`) | Azure Cosmos DB — same document, fire-and-forget on a single daemon thread |
+| OpenAPI generation | Built-in ASP.NET OpenApi | Custom JSDoc parser | Built-in FastAPI/Pydantic generation | springdoc-openapi |
+| Named group syntax | `(?<name>...)` native | `(?<name>...)` native | Translated from `(?<name>...)` to `(?P<name>...)` before compiling | `(?<name>...)` native, but names restricted to `[a-zA-Z][a-zA-Z0-9]*` |
+| Unicode vs Ascii | neither bit supported | `Unicode` (`u` flag) | `Ascii` (`re.ASCII`) — Unicode is the default | `Unicode` (`UNICODE_CHARACTER_CLASS`) — ASCII is the default |
 
 ## 13. Deployment
 
@@ -210,8 +211,8 @@ FastAPI auto-generates the OpenAPI document from the Pydantic models and route d
 - **Startup command**: `python -m uvicorn src.main:app --host 0.0.0.0 --port $PORT`
 - **Required app setting**: `ENVIRONMENT=production` — must be set explicitly on the App Service
   (the code default of `development` is intended for local `uvicorn` runs only; deploying without
-  this setting would leave the localhost-reflecting CORS rule active in production). Set by
-  `.github/workflows/deploy-api-python.yml`.
+  this setting would leave the localhost-reflecting CORS rule active in production). No workflow
+  sets it — see §11.
 - **Deployment package**: `src/` and `requirements.txt` copied into a `deploy/` directory, with
   dependencies pip-installed directly into
   `deploy/.python_packages/lib/site-packages` (the Oryx-free layout Azure App Service's Python

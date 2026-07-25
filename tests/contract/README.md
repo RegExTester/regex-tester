@@ -1,7 +1,7 @@
 # RegEx Tester — cross-backend conformance suite
 
 A single, language-agnostic HTTP test suite that validates any RegEx Tester backend
-(`api-dotnet`, `api-nodejs`, `api-python`, or any future engine) against the canonical contract at
+(`api-dotnet`, `api-nodejs`, `api-python`, `api-java`, or any future engine) against the canonical contract at
 [docs/open-api/regex-tester-api.v1.yaml](../../docs/open-api/regex-tester-api.v1.yaml) and the
 behavioural rules in [docs/design/api-contract.md](../../docs/design/api-contract.md).
 
@@ -34,7 +34,10 @@ cd api-dotnet; dotnet run
 cd api-nodejs; npm install; npm start
 
 # Python — http://localhost:5200
-cd api-python; # see api-python/README.md once TASK-03 lands
+cd api-python; pip install -r requirements.txt; python -m uvicorn src.main:app --port 5200
+
+# Java — http://localhost:5300
+cd api-java; mvn package -DskipTests; java -jar target/app.jar
 ```
 
 ## Running the suite
@@ -52,6 +55,7 @@ $env:BASE_URL = 'http://localhost:5100'; npm test
 npm run test:dotnet   # http://localhost:5000
 npm run test:nodejs   # http://localhost:5100
 npm run test:python   # http://localhost:5200
+npm run test:java     # http://localhost:5300
 ```
 
 The wrapper scripts call `node run.js <BASE_URL>`, which sets `BASE_URL` on the child process

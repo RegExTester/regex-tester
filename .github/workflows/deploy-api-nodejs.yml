@@ -13,7 +13,7 @@ env:
   NODE_VERSION: '22.x'
 
 jobs:
-  # Gate: the full three-engine contract suite must pass for this exact commit before anything is
+  # Gate: the full four-engine contract suite must pass for this exact commit before anything is
   # deployed. No secrets are passed — the suite needs none, and the Azure credentials must not be
   # exposed to it.
   test:

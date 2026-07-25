@@ -7,9 +7,10 @@
 | api-dotnet | .NET 10.0 Web API | `api-dotnet/` | 5000 (5001 https) | `DOTNET` |
 | api-nodejs | Node.js 22 / Express 5 | `api-nodejs/` | 5100 | `NODEJS` |
 | api-python | Python 3.13 / FastAPI | `api-python/` | 5200 | `PYTHON` |
+| api-java | Java 21 / Spring Boot 3.4 | `api-java/` | 5300 | `JAVA` |
 | ui-vuejs | Vue 3 / Vite 6 SPA | `ui-vuejs/` | **4000** | — |
 
-Next free backend port for a new engine: **5300**.
+Next free backend port for a new engine: **5400**.
 
 ## Endpoints (identical on every backend)
 
@@ -44,9 +45,20 @@ Next free backend port for a new engine: **5300**.
 - `src/options.py` — bitmask → `re` flags + option registry
 - `src/middleware/request_timeout.py`, `src/middleware/max_body_size.py`
 
+**api-java** (package root `src/main/java/io/github/regextester/api/`)
+- `controller/RegexController.java` — returns a `Callable` so Spring's 5 s async timeout applies
+- `controller/HomeController.java`, `controller/ApiExceptionHandler.java` (400 / 413 / 200-on-timeout)
+- `service/RegexProcessor.java` — `java.util.regex`, 15 s deadline
+- `service/TimeLimitedCharSequence.java` — deadline-checking `CharSequence`, preempts mid-match
+- `service/CapabilitiesService.java` (`ENGINE_KEY`), `service/TelemetryService.java`
+- `options/RegexOptions.java` — bitmask → `Pattern` flags + option registry
+- `filter/MaxBodySizeFilter.java`, `config/CorsConfig.java`
+- `src/main/resources/application.properties`, `pom.xml` (`<finalName>app</finalName>`)
+
 **ui-vuejs**
 - `src/components/RegexTester.vue` — main component, engine switching, capability-driven options
-- `src/config.js` — registers engines; `config.dotnet.js` / `config.nodejs.js` / `config.python.js`
+- `src/config.js` — registers engines; `config.dotnet.js` / `config.nodejs.js` / `config.python.js` / `config.java.js`
+- Each `config.<engine>.js` also carries a `DOCS_URL` rendered by the `docsUrl` computed — no template change needed per engine
 - `src/utils/encodeUriHelper.js` — Base64Url (RFC 7515)
 - `.env` / `.env.production` — `VITE_API_<ENGINE>` base URLs
 
@@ -65,12 +77,18 @@ Push-Location d:\git\regex-tester\api-nodejs; node src/index.js
 # api-python
 Push-Location d:\git\regex-tester\api-python; .\.venv\Scripts\python.exe -m uvicorn src.main:app --port 5200
 
+# api-java (JDK/Maven are user-local, so set them in every new shell)
+$env:JAVA_HOME="$env:LOCALAPPDATA\jdk\jdk-21.0.12+8"; $env:PATH="$env:JAVA_HOME\bin;$env:LOCALAPPDATA\maven\apache-maven-3.9.16\bin;$env:PATH"; Push-Location d:\git\regex-tester\api-java; java -jar target\app.jar
+
 # ui-vuejs
 Push-Location d:\git\regex-tester\ui-vuejs; npm.cmd start
 ```
 
 Use `npm.cmd` / `npx.cmd`, not `npm` / `npx`. If `git` is unresolvable use
 `& 'C:\Program Files\Git\cmd\git.exe'`, and prefer `git -C <repo>` over relying on the working directory.
+
+A Maven build piped into `Select-Object` produces **no output at all**. Redirect to a file instead:
+`cmd /c "mvn -B -ntp package -DskipTests > build.log 2>&1"; Get-Content build.log`.
 
 ## Conformance suite
 
@@ -84,7 +102,7 @@ Push-Location d:\git\regex-tester\tests\contract; $env:BASE_URL='http://localhos
 Do **not** pass `--root` — it breaks module resolution and every suite fails to collect with
 "no tests", which looks like a real regression but is not.
 
-`.github/workflows/contract-tests.yml` runs this against all three backends on every push and PR.
+`.github/workflows/contract-tests.yml` runs this against all four backends on every push and PR.
 It is also a **reusable workflow** (`workflow_call`) that every deploy workflow calls as a gating
 `test` job — nothing deploys unless all engines are green for that commit. Preserve that wiring.
 
@@ -96,7 +114,7 @@ With the backend running, from the repo root:
 node -e "fetch('http://localhost:5000/openapi/v1.json').then(r=>r.json()).then(o=>require('fs').writeFileSync('docs/open-api/api-dotnet.v1.json', JSON.stringify(o,null,2)+'\n'))"
 ```
 
-Repeat for 5100 → `api-nodejs.v1.json` and 5200 → `api-python.v1.json`.
+Repeat for 5100 → `api-nodejs.v1.json`, 5200 → `api-python.v1.json`, and 5300 → `api-java.v1.json`.
 
 **Never use PowerShell's `ConvertTo-Json`** — it mangles deeply nested structures.
 
@@ -108,12 +126,12 @@ Repeat for 5100 → `api-nodejs.v1.json` and 5200 → `api-python.v1.json`.
 Subagents leave servers running, which locks the .NET build output:
 
 ```powershell
-Get-NetTCPConnection -State Listen -LocalPort 5000,5100,5200,4000 -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess -Unique | ForEach-Object { Stop-Process -Id $_ -Force }
+Get-NetTCPConnection -State Listen -LocalPort 5000,5100,5200,5300,4000 -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess -Unique | ForEach-Object { Stop-Process -Id $_ -Force }
 ```
 
 ## Deployment
 
-Azure App Service: `regex-tester-api-dotnet` / `-nodejs` / `-python`, resource group `regex-tester`,
+Azure App Service: `regex-tester-api-dotnet` / `-nodejs` / `-python` / `-java`, resource group `regex-tester`,
 region `centralus`, plan SKU `S1`. Frontend on GitHub Pages via the external repo
 `RegExTester/regextester.github.io` (branch `master`). Remote is `RegExTester/regex-tester`.
 

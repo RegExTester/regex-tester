@@ -1,14 +1,14 @@
 ---
 name: add-engine
-description: 'Plan and execute adding a brand-new backend (BE) engine to this mono-repo — a new api-<language> project implementing the same canonical v1 API contract as api-dotnet, api-nodejs and api-python. Use when asked to add a Rust, Go, Java, PHP, Ruby, C++ or any other language backend / regex engine. Writes a plan to docs/plan/, task specs to docs/tasks/, scaffolds the new project mirroring the existing backends, registers it in the ui-vuejs frontend, adds CI deploy + contract-test workflows, and documents it. Triggers: "add a new backend", "add a Rust engine", "support another language", "new API project".'
+description: 'Plan and execute adding a brand-new backend (BE) engine to this mono-repo — a new api-<language> project implementing the same canonical v1 API contract as api-dotnet, api-nodejs, api-python and api-java. Use when asked to add a Rust, Go, PHP, Ruby, C++ or any other language backend / regex engine. Writes a plan to docs/plan/, task specs to docs/tasks/, scaffolds the new project mirroring the existing backends, registers it in the ui-vuejs frontend, adds CI deploy + contract-test workflows, and documents it. Triggers: "add a new backend", "add a Rust engine", "support another language", "new API project".'
 argument-hint: 'Language / runtime for the new engine, e.g. "Rust with axum"'
 ---
 
 # Add a new backend engine
 
-The contract is engine-agnostic by design, so this is a **drop-in exercise**: copy the shape of the three
+The contract is engine-agnostic by design, so this is a **drop-in exercise**: copy the shape of the four
 existing backends, do not invent a new one. If you find yourself designing something novel, you have gone
-wrong — go read how the other three do it.
+wrong — go read how the other four do it.
 
 Read [references/repo-map.md](./references/repo-map.md) for layouts, ports and commands, and
 [references/conventions.md](./references/conventions.md) for the rules the new engine must satisfy.
@@ -16,7 +16,7 @@ The authoritative checklist is [references/new-engine-checklist.md](./references
 
 ## Order of operations
 
-1. **Discover** — read the contract and all three existing backends
+1. **Discover** — read the contract and all four existing backends
 2. **Plan** → `docs/plan/YYYY-MM-DD-add-<engine>-backend.md`
 3. **Tasks** → `docs/tasks/TASK-NN-*.md` + register in `docs/tasks/README.md`
 4. **Scaffold + implement** the new backend
@@ -33,8 +33,11 @@ Read all of these before writing any code:
 - [docs/design/api-contract.md](../../../docs/design/api-contract.md) — especially the
   "adding a new backend" checklist
 - [docs/open-api/regex-tester-api.v1.yaml](../../../docs/open-api/regex-tester-api.v1.yaml)
-- All three of `api-dotnet/ARCHITECTURE.md`, `api-nodejs/ARCHITECTURE.md`, `api-python/ARCHITECTURE.md`
-- `api-python/` in full — it is the newest and cleanest reference implementation
+- All four of `api-dotnet/ARCHITECTURE.md`, `api-nodejs/ARCHITECTURE.md`, `api-python/ARCHITECTURE.md`,
+  `api-java/ARCHITECTURE.md`
+- `api-java/` in full — it is the newest reference implementation, and
+  [docs/plan/2026-07-25-add-java-backend.md](../../../docs/plan/2026-07-25-add-java-backend.md) is a
+  worked example of this exact skill
 
 Then assess the **target language's regex engine** and record, per flag in the
 [CLAUDE.md](../../../CLAUDE.md) table, whether it maps natively, needs emulation, or is a no-op.

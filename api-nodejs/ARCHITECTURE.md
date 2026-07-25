@@ -7,7 +7,7 @@ backend specifically, see [docs/design/api-nodejs.md](../docs/design/api-nodejs.
 
 ## 1. Purpose and Tech Stack
 
-One of three interchangeable backends implementing the shared v1 API contract, using JavaScript's
+One of four interchangeable backends implementing the shared v1 API contract, using JavaScript's
 native `RegExp` as its regex engine.
 
 - **Runtime**: Node.js `>=22.0.0` (ES modules, per `package.json` `engines`)

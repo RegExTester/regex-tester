@@ -4,21 +4,23 @@
 [![Deploy api-dotnet](https://github.com/RegExTester/regex-tester/actions/workflows/deploy-api-dotnet.yml/badge.svg)](https://github.com/RegExTester/regex-tester/actions/workflows/deploy-api-dotnet.yml)
 [![Deploy api-nodejs](https://github.com/RegExTester/regex-tester/actions/workflows/deploy-api-nodejs.yml/badge.svg)](https://github.com/RegExTester/regex-tester/actions/workflows/deploy-api-nodejs.yml)
 [![Deploy api-python](https://github.com/RegExTester/regex-tester/actions/workflows/deploy-api-python.yml/badge.svg)](https://github.com/RegExTester/regex-tester/actions/workflows/deploy-api-python.yml)
+[![Deploy api-java](https://github.com/RegExTester/regex-tester/actions/workflows/deploy-api-java.yml/badge.svg)](https://github.com/RegExTester/regex-tester/actions/workflows/deploy-api-java.yml)
 [![Deploy ui-vuejs](https://github.com/RegExTester/regex-tester/actions/workflows/deploy-ui-vuejs.yml/badge.svg)](https://github.com/RegExTester/regex-tester/actions/workflows/deploy-ui-vuejs.yml)
 
 A regex tester with live match highlighting, group/capture extraction, and shareable Base64Url
-URLs — implemented as one frontend against **three interchangeable backends** that all satisfy the
+URLs — implemented as one frontend against **four interchangeable backends** that all satisfy the
 same versioned API contract.
 
-That's the point of the repo: the same UI can run against .NET, Node.js, or Python and get
-identical results, so it doubles as a side-by-side comparison of the three regex engines.
+That's the point of the repo: the same UI can run against .NET, Node.js, Python, or Java and get
+identical results, so it doubles as a side-by-side comparison of the four regex engines.
 
 ## Live
 
 - Frontend: **https://regextester.github.io/**
 - APIs: [regex-tester-api-dotnet](https://regex-tester-api-dotnet.azurewebsites.net) ·
   [regex-tester-api-nodejs](https://regex-tester-api-nodejs.azurewebsites.net) ·
-  [regex-tester-api-python](https://regex-tester-api-python.azurewebsites.net)
+  [regex-tester-api-python](https://regex-tester-api-python.azurewebsites.net) ·
+  [regex-tester-api-java](https://regex-tester-api-java.azurewebsites.net)
 
 ## Projects
 
@@ -27,6 +29,7 @@ identical results, so it doubles as a side-by-side comparison of the three regex
 | `api-dotnet` | .NET 10.0 Web API | [api-dotnet/](api-dotnet/) | 5000 (5001 https) |
 | `api-nodejs` | Node.js 22+ / Express 5 | [api-nodejs/](api-nodejs/) | 5100 |
 | `api-python` | Python 3.13 / FastAPI | [api-python/](api-python/) | 5200 |
+| `api-java` | Java 21 / Spring Boot 3.4 | [api-java/](api-java/) | 5300 |
 | `ui-vuejs` | Vue 3 / Vite 6 SPA | [ui-vuejs/](ui-vuejs/) | 4000 |
 
 ## Quick start
@@ -46,6 +49,9 @@ Set-Location api-nodejs; npm install; npm start
 # api-python — http://localhost:5200
 Set-Location api-python; pip install -r requirements.txt; python -m uvicorn src.main:app --port 5200
 
+# api-java — http://localhost:5300
+Set-Location api-java; mvn package -DskipTests; java -jar target/app.jar
+
 # ui-vuejs — http://localhost:4000
 Set-Location ui-vuejs; npm install; npm start
 ```
@@ -62,11 +68,14 @@ cd api-nodejs && npm install && npm start
 # api-python — http://localhost:5200
 cd api-python && pip install -r requirements.txt && python -m uvicorn src.main:app --port 5200
 
+# api-java — http://localhost:5300
+cd api-java && mvn package -DskipTests && java -jar target/app.jar
+
 # ui-vuejs — http://localhost:4000
 cd ui-vuejs && npm install && npm start
 ```
 
-The frontend's `.env` already points at `localhost:5000` / `:5100` / `:5200`, so no extra
+The frontend's `.env` already points at `localhost:5000` / `:5100` / `:5200` / `:5300`, so no extra
 configuration is needed for local development. Switch engines at runtime with the dropdown in the
 UI.
 

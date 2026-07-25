@@ -1,6 +1,6 @@
 ---
 name: update-be
-description: 'Plan and execute a change request across all backend (BE) engines in this mono-repo. Use when asked to change, add, remove or fix behaviour in the APIs — endpoints, option flags, validation, limits, timeouts, error semantics, CORS, telemetry, OpenAPI — or when a change must stay consistent across api-dotnet, api-nodejs and api-python. Writes a plan to docs/plan/, task specs to docs/tasks/, updates every backend, then updates the ui-vuejs frontend if the contract surface changed. Triggers: "change the API", "update all backends", "add an option flag", "modify the contract", "keep the backends in sync".'
+description: 'Plan and execute a change request across all backend (BE) engines in this mono-repo. Use when asked to change, add, remove or fix behaviour in the APIs — endpoints, option flags, validation, limits, timeouts, error semantics, CORS, telemetry, OpenAPI — or when a change must stay consistent across api-dotnet, api-nodejs, api-python and api-java. Writes a plan to docs/plan/, task specs to docs/tasks/, updates every backend, then updates the ui-vuejs frontend if the contract surface changed. Triggers: "change the API", "update all backends", "add an option flag", "modify the contract", "keep the backends in sync".'
 argument-hint: 'Describe the change request'
 ---
 
@@ -18,9 +18,9 @@ back-filling the contract is how the engines drift.
 2. **Plan** → `docs/plan/YYYY-MM-DD-<slug>.md`
 3. **Tasks** → `docs/tasks/TASK-NN-<slug>.md` + register in `docs/tasks/README.md`
 4. **Contract** → update `docs/open-api/regex-tester-api.v1.yaml` and `docs/design/api-contract.md`
-5. **Backends** → api-dotnet, api-nodejs, api-python
+5. **Backends** → api-dotnet, api-nodejs, api-python, api-java
 6. **Frontend** → only if the contract surface changed
-7. **Verify** → build + run all three + conformance suite
+7. **Verify** → build + run all four + conformance suite
 8. **Commit**
 
 See [references/repo-map.md](./references/repo-map.md) for file layouts, ports and run commands.
@@ -33,7 +33,7 @@ Read, do not assume:
 - [docs/design/api-contract.md](../../../docs/design/api-contract.md) — narrative spec
 - [docs/open-api/regex-tester-api.v1.yaml](../../../docs/open-api/regex-tester-api.v1.yaml) — canonical schema
 - [ARCHITECTURE.md](../../../ARCHITECTURE.md) and each `api-*/ARCHITECTURE.md`
-- The actual source in **all three** backends for the area you are changing
+- The actual source in **all four** backends for the area you are changing
 
 Report what each backend does *today* before proposing the change. Engines often already diverge;
 find that first. If the code and the docs disagree, the code wins — and fix the doc.
@@ -78,7 +78,7 @@ If the request changes any request/response shape, status code, limit or flag:
 
 ## 5. Update every backend
 
-Apply the change to **all three**. A per-engine no-op is still an explicit decision: report it in
+Apply the change to **all four**. A per-engine no-op is still an explicit decision: report it in
 `GET /api/capabilities` as `supported: false` rather than silently ignoring it.
 
 Cross-check the parity items in [references/conventions.md](./references/conventions.md) — every one of
@@ -99,8 +99,8 @@ Do not accept a subagent's word. Run it yourself. Commands are in
 [references/repo-map.md](./references/repo-map.md).
 
 - [ ] `dotnet build` clean, no new warnings
-- [ ] All three backends start
-- [ ] Conformance suite passes against **each** of 5000, 5100, 5200
+- [ ] All four backends start
+- [ ] Conformance suite passes against **each** of 5000, 5100, 5200, 5300
 - [ ] New behaviour has a new conformance test — a change with no test is not done
 - [ ] Frontend builds; if touched, verified in a browser against every engine
 - [ ] Every relative link in changed docs resolves

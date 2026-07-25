@@ -148,26 +148,26 @@ silently by every engine (§4). **128 is permanently reserved** (historically th
 of .NET's `RegexOptions`) and MUST NOT be allocated to any future flag. New flags take the next free
 power of two after the highest allocated value.
 
-| Value | Name | .NET | Node.js | Python (`re`) |
-|---|---|---|---|---|
-| 1 | IgnoreCase | `IgnoreCase` | `i` | `IGNORECASE` |
-| 2 | Multiline | `Multiline` | `m` | `MULTILINE` |
-| 4 | ExplicitCapture | `ExplicitCapture` | — | — |
-| 8 | Compiled | `Compiled` | — | — |
-| 16 | Singleline | `Singleline` | `s` | `DOTALL` |
-| 32 | IgnorePatternWhitespace | `IgnorePatternWhitespace` | strip comments | `VERBOSE` |
-| 64 | RightToLeft | `RightToLeft` | — | — |
-| 128 | *reserved* | .NET internal Debug | — | — |
-| 256 | ECMAScript | `ECMAScript` | — | — |
-| 512 | CultureInvariant | `CultureInvariant` | — | — |
-| 1024 | NonBacktracking | `NonBacktracking` | — | — |
-| 2048 | HasIndices | — | `d` | — |
-| 4096 | Global | — | `g` | — |
-| 8192 | Unicode | — | `u` | — |
-| 16384 | UnicodeSets | — | `v` | — |
-| 32768 | ShowCaptures | custom, stripped | custom, stripped | custom, stripped |
-| 65536 | Sticky | — | `y` | — |
-| 131072 | Ascii | — | — | `ASCII` |
+| Value | Name | .NET | Node.js | Python (`re`) | Java (`Pattern`) |
+|---|---|---|---|---|---|
+| 1 | IgnoreCase | `IgnoreCase` | `i` | `IGNORECASE` | `CASE_INSENSITIVE` |
+| 2 | Multiline | `Multiline` | `m` | `MULTILINE` | `MULTILINE` |
+| 4 | ExplicitCapture | `ExplicitCapture` | — | — | — |
+| 8 | Compiled | `Compiled` | — | — | — |
+| 16 | Singleline | `Singleline` | `s` | `DOTALL` | `DOTALL` |
+| 32 | IgnorePatternWhitespace | `IgnorePatternWhitespace` | strip comments | `VERBOSE` | `COMMENTS` |
+| 64 | RightToLeft | `RightToLeft` | — | — | — |
+| 128 | *reserved* | .NET internal Debug | — | — | — |
+| 256 | ECMAScript | `ECMAScript` | — | — | — |
+| 512 | CultureInvariant | `CultureInvariant` | — | — | — |
+| 1024 | NonBacktracking | `NonBacktracking` | — | — | — |
+| 2048 | HasIndices | — | `d` | — | — |
+| 4096 | Global | — | `g` | — | — |
+| 8192 | Unicode | — | `u` | — | `UNICODE_CHARACTER_CLASS` |
+| 16384 | UnicodeSets | — | `v` | — | — |
+| 32768 | ShowCaptures | custom, stripped | custom, stripped | custom, stripped | custom, stripped |
+| 65536 | Sticky | — | `y` | — | — |
+| 131072 | Ascii | — | — | `ASCII` | — |
 
 A `—` means the engine has no native equivalent for that flag; it is still listed in
 `/api/capabilities` with `supported: false` and a `null` `flag`, and setting the bit is a no-op
@@ -207,8 +207,8 @@ implementation language:
 
 ### Further clarifications
 
-These numbered rules were added after a conformance-suite run surfaced ambiguity or bugs in all
-three backends. They are contractual MUST rules, equal in force to the bullets above:
+These numbered rules were added after a conformance-suite run surfaced ambiguity or bugs in the
+backends. They are contractual MUST rules, equal in force to the bullets above:
 
 1. **All matches, regardless of options.** `POST /api/regex` MUST return every non-overlapping
    match found in `text`, regardless of which option bits are set. Engine-specific "global" flags
@@ -252,6 +252,9 @@ before ever reaching field validation — which is exactly the bug this limit fi
 
 ## 6. Adding a new backend (e.g. Rust) — checklist
 
+`api-java` was added by following exactly this list; it is kept generic so the next engine can be
+too.
+
 1. Implement all three endpoints: `GET /`, `GET /api/capabilities`, `POST /api/regex`, matching
    the schemas in [regex-tester-api.v1.yaml](../open-api/regex-tester-api.v1.yaml) exactly.
 2. Choose and report a new, stable, uppercase `engineKey` (e.g. `RUST`) and a human-readable
@@ -268,21 +271,27 @@ before ever reaching field validation — which is exactly the bug this limit fi
    backend's `BASE_URL`.
 7. Add a `ui-vuejs` engine entry (`src/config.<engine>.js`, registered in `src/config.js`) and a
    `VITE_API_<ENGINE>` environment variable in `.env` / `.env.production`.
-8. Add a deploy workflow under `.github/workflows/` modelled on an existing backend's workflow.
-9. Add a design doc under `docs/design/` (e.g. `api-rust.md`) mirroring the structure of
-   [api-nodejs.md](api-nodejs.md).
+8. Add a deploy workflow under `.github/workflows/` modelled on an existing backend's workflow, and
+   add the engine to the `contract-tests.yml` matrix so CI covers it.
+9. Add a design doc under `docs/design/` (e.g. `api-rust.md`) and an `ARCHITECTURE.md` in the
+   backend's own directory, mirroring the structure of [api-nodejs.md](api-nodejs.md) and
+   [api-nodejs/ARCHITECTURE.md](../../api-nodejs/ARCHITECTURE.md).
+10. Add the engine's column to the flag registry (§3) and the divergence table (§7).
 
 ## 7. Known engine divergences
 
 Legitimate, permanent behavioural differences between engines — not drift to be fixed, but
 documented so clients don't assume identical output everywhere:
 
-| Behaviour | api-dotnet | api-nodejs | api-python |
-|---|---|---|---|
-| `features.captures` | `multi` — `System.Text.RegularExpressions` retains every capture of a repeated group via `Group.Captures` | `single` — the JS `RegExp`/`String.matchAll` API only exposes the last capture per group | `single` — Python's `re` module only exposes the last capture per group via `Match.groups()` |
-| `ExplicitCapture`, `Compiled`, `RightToLeft`, `ECMAScript`, `CultureInvariant`, `NonBacktracking` | native support | no native equivalent; bits are accepted and ignored | no native equivalent; bits are accepted and ignored |
-| `HasIndices`, `Global`, `Unicode`, `UnicodeSets`, `Sticky` | no native equivalent; bits are accepted and ignored | native JS `RegExp` flags | no native equivalent; bits are accepted and ignored |
-| `Ascii` | no native equivalent; bit is accepted and ignored | no native equivalent; bit is accepted and ignored | native `re.ASCII` |
+| Behaviour | api-dotnet | api-nodejs | api-python | api-java |
+|---|---|---|---|---|
+| `features.captures` | `multi` — `System.Text.RegularExpressions` retains every capture of a repeated group via `Group.Captures` | `single` — the JS `RegExp`/`String.matchAll` API only exposes the last capture per group | `single` — Python's `re` module only exposes the last capture per group via `Match.groups()` | `single` — Java's `Matcher` only exposes the last capture per group |
+| `ExplicitCapture`, `Compiled`, `RightToLeft`, `ECMAScript`, `CultureInvariant`, `NonBacktracking` | native support | no native equivalent; bits are accepted and ignored | no native equivalent; bits are accepted and ignored | no native equivalent; bits are accepted and ignored |
+| `HasIndices`, `Global`, `UnicodeSets`, `Sticky` | no native equivalent; bits are accepted and ignored | native JS `RegExp` flags | no native equivalent; bits are accepted and ignored | no native equivalent; bits are accepted and ignored |
+| `Unicode` | no native equivalent; bit is accepted and ignored | native `u` flag | no-op — `str` patterns are already Unicode-aware | native `UNICODE_CHARACTER_CLASS` |
+| `Ascii` | no native equivalent; bit is accepted and ignored | no native equivalent; bit is accepted and ignored | native `re.ASCII` | no-op — Java is already ASCII-by-default, so `Unicode` is the meaningful bit instead |
+| Named group syntax | `(?<name>...)` native | `(?<name>...)` native | rewritten to `(?P<name>...)` before compiling | `(?<name>...)` native, but names are restricted to `[a-zA-Z][a-zA-Z0-9]*`, so e.g. `(?<my_group>x)` is a compile error here and valid elsewhere |
+| 15 s regex timeout enforcement | native `Regex` timeout | deadline checked between matches — cannot preempt one runaway match | deadline checked between matches — cannot preempt one runaway match | deadline checked inside a wrapping `CharSequence` — preempts mid-match |
 
 Engines MUST still accept and silently ignore any bit they don't implement (§4) — this table only
 explains *why* the same bitmask can produce different (but each individually correct) results per

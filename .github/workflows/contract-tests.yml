@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
   pull_request:
-  # Callable by the four deploy workflows so a deployment can depend on a green suite for the exact
+  # Callable by the five deploy workflows so a deployment can depend on a green suite for the exact
   # commit being deployed. Deliberately a reusable workflow rather than `workflow_run` on the deploy
   # side: `workflow_run` cannot use `paths` filters, and it checks out the default-branch tip rather
   # than the commit that was tested unless head_sha is passed explicitly — which would let untested
@@ -26,6 +26,8 @@ jobs:
             port: 5100
           - engine: python
             port: 5200
+          - engine: java
+            port: 5300
 
     steps:
       - uses: actions/checkout@v4
@@ -49,6 +51,14 @@ jobs:
         with:
           python-version: '3.13'
 
+      - name: Setup Java
+        if: matrix.engine == 'java'
+        uses: actions/setup-java@v4
+        with:
+          distribution: microsoft
+          java-version: '21'
+          cache: maven
+
       - name: Start api-dotnet
         if: matrix.engine == 'dotnet'
         working-directory: api-dotnet
@@ -70,6 +80,13 @@ jobs:
         run: |
           pip install -r requirements.txt
           PORT=5200 nohup python -m uvicorn src.main:app --host 0.0.0.0 --port 5200 > python.log 2>&1 &
+
+      - name: Start api-java
+        if: matrix.engine == 'java'
+        working-directory: api-java
+        run: |
+          mvn -B -ntp package -DskipTests
+          PORT=5300 nohup java -jar target/app.jar > java.log 2>&1 &
 
       - name: Wait for backend to become ready
         run: |

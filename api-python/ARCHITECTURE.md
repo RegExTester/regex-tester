@@ -7,7 +7,7 @@ backend specifically, see [docs/design/api-python.md](../docs/design/api-python.
 
 ## 1. Purpose and Tech Stack
 
-One of three interchangeable backends implementing the shared v1 API contract, using only the
+One of four interchangeable backends implementing the shared v1 API contract, using only the
 Python standard library `re` module (no third-party `regex` package) as its regex engine.
 
 - **Runtime**: Python 3.13 (`pyproject.toml` declares `requires-python = ">=3.11"`; CI/deploy

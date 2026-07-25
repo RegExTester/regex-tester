@@ -64,14 +64,9 @@
         <!-- Options sidebar (desktop) -->
         <div class="col-md-3 d-md-block d-none">
           <h6>Options
-            <a v-if="selectedEngine === 'DOTNET'" title="Regular expression options"
-               href="https://learn.microsoft.com/en-us/dotnet/standard/base-types/regular-expression-options"
-               class="external-link" target="_blank">
-              <i class="fa fa-external-link" aria-hidden="true"></i>
-            </a>
-            <a v-else-if="selectedEngine === 'NODEJS'" title="Regular expression reference"
-               href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/RegExp"
-               class="external-link" target="_blank">
+            <a v-if="docsUrl" title="Regular expression options"
+               :href="docsUrl"
+               class="external-link" target="_blank" rel="noopener noreferrer">
               <i class="fa fa-external-link" aria-hidden="true"></i>
             </a>
           </h6>
@@ -283,6 +278,7 @@ let pendingBitmask = 0
 let seedFromDefaults = false
 
 // Computed helpers
+const docsUrl = computed(() => engineConfig()?.DOCS_URL ?? null)
 const engineTooltip = computed(() =>
   engine.value === '' ? 'Loading...' : engine.value === 'offline' ? 'Offline' : engine.value
 )

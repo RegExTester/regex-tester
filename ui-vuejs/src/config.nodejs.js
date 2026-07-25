@@ -2,6 +2,7 @@ const apiBase = import.meta.env.VITE_API_NODEJS
 
 export const CONFIG_NODEJS = {
   DEFAULT_OPTIONS: 4096 | 2048 | 1 | 2, // Global | HasIndices | IgnoreCase | Multiline
+  DOCS_URL: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/RegExp',
   REGEX_OPTIONS: {
     IgnoreCase:  { Value: 1 << 0,  Name: 'Ignore Case',   Flag: 'i' },
     Multiline:   { Value: 1 << 1,  Name: 'Multiline',     Flag: 'm' },

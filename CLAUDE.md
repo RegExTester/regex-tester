@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-RegEx Tester is a mono-repo containing one frontend SPA and three backend APIs that provide real-time regex testing with match highlighting, group/capture extraction, and URL-based sharing via Base64Url encoding.
+RegEx Tester is a mono-repo containing one frontend SPA and four backend APIs that provide real-time regex testing with match highlighting, group/capture extraction, and URL-based sharing via Base64Url encoding.
 
 ### Projects
 
@@ -13,9 +13,10 @@ RegEx Tester is a mono-repo containing one frontend SPA and three backend APIs t
 | **api-dotnet** | .NET 10.0 Web API | `api-dotnet/` |
 | **api-nodejs** | Node.js 22+ / Express 5 | `api-nodejs/` |
 | **api-python** | Python 3.13 / FastAPI | `api-python/` |
+| **api-java** | Java 21 / Spring Boot 3.4 | `api-java/` |
 | **ui-vuejs** | Vue 3 / Vite 6 SPA | `ui-vuejs/` |
 
-The Vue.js frontend supports switching between all three backends at runtime via an engine dropdown, driven by each backend's `GET /api/capabilities` response.
+The Vue.js frontend supports switching between all four backends at runtime via an engine dropdown, driven by each backend's `GET /api/capabilities` response.
 
 See [README.md](README.md) for a quick start, [ARCHITECTURE.md](ARCHITECTURE.md) for the system-level
 design (diagrams, cross-cutting concerns, engine divergences), and [DEPLOYMENT.md](DEPLOYMENT.md) for
@@ -47,6 +48,14 @@ python -m uvicorn src.main:app --port 5200        # Server at http://localhost:5
 python -m uvicorn src.main:app --reload --port 5200  # Dev server with reload
 ```
 
+### api-java
+
+```bash
+mvn package -DskipTests        # Build; produces target/app.jar
+java -jar target/app.jar       # Server at http://localhost:5300
+mvn spring-boot:run            # Dev server
+```
+
 ### ui-vuejs
 
 ```bash
@@ -59,7 +68,7 @@ npm run preview                # Preview production build
 
 ## Architecture
 
-### API Contract (shared by all three backends)
+### API Contract (shared by all four backends)
 
 Every backend implements the same canonical v1 contract, so any frontend can talk to any engine
 without engine-specific branching. The source of truth is
@@ -129,63 +138,85 @@ for the full response shape.
 - `src/middleware/request_timeout.py` — 5s HTTP timeout
 - `src/middleware/max_body_size.py` — enforces `maxRequestBodyBytes` (8192) -> HTTP 413
 
+### api-java Key Files
+
+- `src/main/java/io/github/regextester/api/Application.java` — Spring Boot entry point
+- `src/main/java/io/github/regextester/api/controller/RegexController.java` — POST /api/regex, returns a `Callable` so the 5s async timeout applies
+- `src/main/java/io/github/regextester/api/controller/HomeController.java` — GET / (302), GET /api/capabilities (24h cache)
+- `src/main/java/io/github/regextester/api/controller/ApiExceptionHandler.java` — 400 validation, 413 body-too-large, 200-on-async-timeout
+- `src/main/java/io/github/regextester/api/service/RegexProcessor.java` — `java.util.regex` engine, 15s deadline
+- `src/main/java/io/github/regextester/api/service/TimeLimitedCharSequence.java` — deadline-checking `CharSequence` that preempts a runaway match mid-scan
+- `src/main/java/io/github/regextester/api/service/CapabilitiesService.java` — GET /api/capabilities option registry and limits
+- `src/main/java/io/github/regextester/api/options/RegexOptions.java` — bitmask -> `Pattern` flag mapping and the shared option registry
+- `src/main/java/io/github/regextester/api/filter/MaxBodySizeFilter.java` — enforces `maxRequestBodyBytes` (8192) -> HTTP 413 before parsing
+- `src/main/java/io/github/regextester/api/config/CorsConfig.java` — highest-precedence CORS filter, never `*`
+- `src/main/resources/application.properties` — port 5300, 5s async timeout, springdoc paths
+- `pom.xml` — `<finalName>app</finalName>` so App Service's default `java -jar app.jar` works unchanged
+
 ### ui-vuejs Key Files
 
 - `src/components/RegexTester.vue` — main component with engine switching and capability-driven options
-- `src/config.js` — registers all three engines; `src/config.dotnet.js` / `config.nodejs.js` / `config.python.js` hold per-engine bundled fallback config
+- `src/config.js` — registers all four engines; `src/config.dotnet.js` / `config.nodejs.js` / `config.python.js` / `config.java.js` hold per-engine bundled fallback config
 - `src/utils/encodeUriHelper.js` — Base64Url encode/decode (RFC7515)
-- `.env` / `.env.production` — API base URLs for .NET (port 5000), Node.js (port 5100), and Python (port 5200)
+- `.env` / `.env.production` — API base URLs for .NET (port 5000), Node.js (port 5100), Python (port 5200), and Java (port 5300)
 
 ### Regex Options (bitwise flags)
 
 128 is permanently reserved (historically .NET's internal `RegexOptions.Debug` bit) and MUST NOT
 be allocated to any future flag.
 
-| Flag | Value | .NET | Node.js | Python |
-|------|-------|------|---------|--------|
-| IgnoreCase | 1 | `RegexOptions.IgnoreCase` | `i` flag | `re.IGNORECASE` |
-| Multiline | 2 | `RegexOptions.Multiline` | `m` flag | `re.MULTILINE` |
-| ExplicitCapture | 4 | `RegexOptions.ExplicitCapture` | no-op | no-op |
-| Compiled | 8 | `RegexOptions.Compiled` | no-op | no-op |
-| Singleline | 16 | `RegexOptions.Singleline` | `s` flag | `re.DOTALL` |
-| IgnorePatternWhitespace | 32 | `RegexOptions.IgnorePatternWhitespace` | strip whitespace/comments | `re.VERBOSE` |
-| RightToLeft | 64 | `RegexOptions.RightToLeft` | no-op | no-op |
-| *(128 reserved)* | 128 | — | — | — |
-| ECMAScript | 256 | `RegexOptions.ECMAScript` | no-op (default) | no-op |
-| CultureInvariant | 512 | `RegexOptions.CultureInvariant` | no-op | no-op |
-| NonBacktracking | 1024 | `RegexOptions.NonBacktracking` | no-op | no-op |
-| HasIndices | 2048 | no-op | `d` flag (always applied internally; display-only) | no-op |
-| Global | 4096 | no-op | `g` flag (always applied internally; display-only) | no-op |
-| Unicode | 8192 | no-op | `u` flag | no-op |
-| UnicodeSets | 16384 | no-op | `v` flag | no-op |
-| ShowCaptures | 32768 | custom (stripped before execution) | custom (stripped before execution) | custom (stripped before execution) |
-| Sticky | 65536 | no-op | `y` flag | no-op |
-| Ascii | 131072 | no-op | no-op | `re.ASCII` |
+| Flag | Value | .NET | Node.js | Python | Java |
+|------|-------|------|---------|--------|------|
+| IgnoreCase | 1 | `RegexOptions.IgnoreCase` | `i` flag | `re.IGNORECASE` | `CASE_INSENSITIVE` |
+| Multiline | 2 | `RegexOptions.Multiline` | `m` flag | `re.MULTILINE` | `MULTILINE` |
+| ExplicitCapture | 4 | `RegexOptions.ExplicitCapture` | no-op | no-op | no-op |
+| Compiled | 8 | `RegexOptions.Compiled` | no-op | no-op | no-op |
+| Singleline | 16 | `RegexOptions.Singleline` | `s` flag | `re.DOTALL` | `DOTALL` |
+| IgnorePatternWhitespace | 32 | `RegexOptions.IgnorePatternWhitespace` | strip whitespace/comments | `re.VERBOSE` | `COMMENTS` |
+| RightToLeft | 64 | `RegexOptions.RightToLeft` | no-op | no-op | no-op |
+| *(128 reserved)* | 128 | — | — | — | — |
+| ECMAScript | 256 | `RegexOptions.ECMAScript` | no-op (default) | no-op | no-op |
+| CultureInvariant | 512 | `RegexOptions.CultureInvariant` | no-op | no-op | no-op |
+| NonBacktracking | 1024 | `RegexOptions.NonBacktracking` | no-op | no-op | no-op |
+| HasIndices | 2048 | no-op | `d` flag (always applied internally; display-only) | no-op | no-op |
+| Global | 4096 | no-op | `g` flag (always applied internally; display-only) | no-op | no-op |
+| Unicode | 8192 | no-op | `u` flag | no-op | `UNICODE_CHARACTER_CLASS` |
+| UnicodeSets | 16384 | no-op | `v` flag | no-op | no-op |
+| ShowCaptures | 32768 | custom (stripped before execution) | custom (stripped before execution) | custom (stripped before execution) | custom (stripped before execution) |
+| Sticky | 65536 | no-op | `y` flag | no-op | no-op |
+| Ascii | 131072 | no-op | no-op | `re.ASCII` | no-op |
 
 api-nodejs always applies the `g` and `d` flags internally regardless of the `Global`/`HasIndices`
 bits, so it returns every match and full index data unconditionally; those two bits remain in the
 capability list purely for display purposes.
+
+api-java supports `Unicode` but not `Ascii` — the inverse of api-python. Java's `Pattern` is
+ASCII-oriented by default and opts *in* to Unicode character classes, whereas Python's `re` is
+Unicode by default and opts *out*. Java also restricts named-group names to `[a-zA-Z][a-zA-Z0-9]*`,
+so `(?<my_group>x)` compiles on the other three engines but is a pattern error on Java (returned as
+a normal `error` string with HTTP 200).
 
 ### Deployment
 
 - **api-dotnet**: Azure App Service (`regex-tester-api-dotnet.azurewebsites.net`)
 - **api-nodejs**: Azure App Service (`regex-tester-api-nodejs.azurewebsites.net`)
 - **api-python**: Azure App Service (`regex-tester-api-python.azurewebsites.net`)
+- **api-java**: Azure App Service (`regex-tester-api-java.azurewebsites.net`)
 - **Frontend**: GitHub Pages (`https://regextester.github.io/`)
-- **Telemetry**: Azure Cosmos DB (api-dotnet only, optional)
+- **Telemetry**: Azure Cosmos DB (all four backends, optional — disabled when the connection string is empty)
 
 ### Testing
 
 - `tests/contract/` — a language-agnostic conformance suite (vitest + ajv), run against a single
   backend at a time via the `BASE_URL` environment variable, e.g.
-  `BASE_URL=http://localhost:5200 npx vitest run`. It has 11 spec files and validates every
+  `BASE_URL=http://localhost:5200 npx vitest run`. It has 10 spec files and validates every
   `/api/regex` response against the canonical OpenAPI schema plus the behavioural MUST rules in
   [docs/design/api-contract.md](docs/design/api-contract.md). See
   [tests/contract/README.md](tests/contract/README.md).
-- `.github/workflows/contract-tests.yml` runs this suite against all three backends in CI on every
+- `.github/workflows/contract-tests.yml` runs this suite against all four backends in CI on every
   push/PR.
 
 ### Documentation
 
-- OpenAPI specs: served at `/openapi/v1.json` and Swagger UI at `/scalar/v1` (all three backends)
+- OpenAPI specs: served at `/openapi/v1.json` and Swagger UI at `/scalar/v1` (all four backends)
 - Design docs: `docs/design/`

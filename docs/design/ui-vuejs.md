@@ -2,7 +2,7 @@
 
 ## Overview
 
-Vue 3 Single Page Application providing a real-time regex testing interface with multi-engine support. Users can switch between .NET, Node.js, and Python backends at runtime. On engine switch, the frontend fetches `GET /api/capabilities` from the newly selected engine and renders its option checkboxes dynamically. Features debounced input, match highlighting, group/capture display, and URL-based sharing.
+Vue 3 Single Page Application providing a real-time regex testing interface with multi-engine support. Users can switch between .NET, Node.js, Python, and Java backends at runtime. On engine switch, the frontend fetches `GET /api/capabilities` from the newly selected engine and renders its option checkboxes dynamically. Features debounced input, match highlighting, group/capture display, and URL-based sharing.
 
 ## Technology Stack
 
@@ -28,6 +28,7 @@ ui-vuejs/
 │   ├── config.dotnet.js            # .NET engine: endpoints, bundled fallback option list
 │   ├── config.nodejs.js            # Node.js engine: endpoints, bundled fallback option list
 │   ├── config.python.js            # Python engine: endpoints, bundled fallback option list
+│   ├── config.java.js              # Java engine: endpoints, bundled fallback option list
 │   ├── main.js                     # Vue app bootstrap
 │   └── styles.css                  # Global styles
 ├── .env                            # Dev environment variables
@@ -46,7 +47,7 @@ ui-vuejs/
 Single-file component using `<script setup>` (Composition API).
 
 **State (refs)**:
-- `selectedEngine` — `'DOTNET'`, `'NODEJS'`, or `'PYTHON'`
+- `selectedEngine` — `'DOTNET'`, `'NODEJS'`, `'PYTHON'`, or `'JAVA'`
 - `engine` — engine framework string from `/api/capabilities`'s `runtime.framework` (or `'offline'`)
 - `pattern`, `text`, `replace` — form inputs
 - `result` — API response object
@@ -59,6 +60,8 @@ Single-file component using `<script setup>` (Composition API).
 **Computed**:
 - `engineTooltip` — tooltip text based on engine status
 - `engineIconClass` — Font Awesome icon class (spinner/exclamation/info)
+- `docsUrl` — the selected engine's `DOCS_URL` from `config.<engine>.js`, rendered as the "syntax
+  reference" link; adding an engine therefore needs no template change
 
 **Key Functions**:
 - `apiConfig()` — returns `CONFIG.API[selectedEngine]` endpoints
@@ -78,6 +81,7 @@ ENGINES: {
   DOTNET: { Name: '.Net',    Key: 'DOTNET', Index: 0, ... },
   NODEJS: { Name: 'Node.js', Key: 'NODEJS', Index: 1, ... },
   PYTHON: { Name: 'Python',  Key: 'PYTHON', Index: 2, ... },
+  JAVA:   { Name: 'Java',    Key: 'JAVA',   Index: 3, ... },
 }
 ```
 
@@ -113,7 +117,10 @@ engine's `GET /api/capabilities` response:
 /:pattern                      → RegexTester
 /:pattern/:text                → RegexTester
 /:pattern/:text/:options       → RegexTester
+/:pattern/:text/:options/:engine → RegexTester
 ```
+
+`:engine` is the engine's numeric `Index` (0 = .NET, 1 = Node.js, 2 = Python, 3 = Java).
 
 Uses `createWebHistory('/')` (HTML5 History API). Parameters are Base64Url-encoded.
 
@@ -135,6 +142,7 @@ fetch(apiConfig().REGEX, {
 | `VITE_API_DOTNET` | `http://localhost:5000` | `https://regex-tester-api-dotnet.azurewebsites.net` |
 | `VITE_API_NODEJS` | `http://localhost:5100` | `https://regex-tester-api-nodejs.azurewebsites.net` |
 | `VITE_API_PYTHON` | `http://localhost:5200` | `https://regex-tester-api-python.azurewebsites.net` |
+| `VITE_API_JAVA` | `http://localhost:5300` | `https://regex-tester-api-java.azurewebsites.net` |
 
 ## UI Layout (Bootstrap Grid)
 

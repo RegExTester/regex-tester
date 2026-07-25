@@ -6,7 +6,7 @@ For a narrative walkthrough of this backend specifically, see [docs/design/api-d
 
 ## 1. Purpose and Tech Stack
 
-One of three interchangeable backends implementing the shared v1 API contract, using
+One of four interchangeable backends implementing the shared v1 API contract, using
 `System.Text.RegularExpressions` as its regex engine.
 
 - **Runtime**: .NET 10.0 / ASP.NET Core, `net10.0` target framework
@@ -81,7 +81,7 @@ is a custom, non-.NET flag). Every other contract bit (`HasIndices`, `Global`, `
 `UnicodeSets`, `Sticky`, `Ascii`) is simply absent from the mask, so it's silently ignored rather
 than rejected.
 
-`GET /api/capabilities` reports `features.captures = "multi"` — the only one of the three engines
+`GET /api/capabilities` reports `features.captures = "multi"` — the only one of the four engines
 to do so — because `System.Text.RegularExpressions.Group.Captures` retains every capture of a
 repeated group, not just the last one.
 

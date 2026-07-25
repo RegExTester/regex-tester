@@ -24,7 +24,7 @@ workflows already expect — reuse them exactly unless you also edit the workflo
 # Resource group
 az group create --name regex-tester --location centralus
 
-# App Service plan (Linux, shared by all three backends)
+# App Service plan (Linux, shared by all four backends)
 az appservice plan create \
   --name regex-tester-plan \
   --resource-group regex-tester \
@@ -42,6 +42,9 @@ az webapp create --name regex-tester-api-nodejs --resource-group regex-tester \
 az webapp create --name regex-tester-api-python --resource-group regex-tester \
   --plan regex-tester-plan --runtime "PYTHON:3.13"
 
+az webapp create --name regex-tester-api-java --resource-group regex-tester \
+  --plan regex-tester-plan --runtime "JAVA:21-java21"
+
 # Cosmos DB account (serverless-capable API for NoSQL)
 az cosmosdb create --name regex-tester-cosmos --resource-group regex-tester \
   --locations regionName=centralus
@@ -56,7 +59,7 @@ az cosmosdb sql container create --account-name regex-tester-cosmos \
 ```
 
 > **Partition key.** The telemetry container is partitioned on `/timestamp`, which is effectively
-> unique per document, so writes spread evenly across logical partitions. All three backends call
+> unique per document, so writes spread evenly across logical partitions. All four backends call
 > `CreateContainerIfNotExists` at startup, which **silently returns an existing container as-is** —
 > Cosmos cannot change a container's partition key after creation. `/timestamp` is deliberately the
 > same key the container has always used, so an existing deployment needs **no action**: do not
@@ -77,7 +80,7 @@ az cosmosdb keys list --name regex-tester-cosmos --resource-group regex-tester \
 
 | App | Setting | Value | Notes |
 |---|---|---|---|
-| all three | `ALLOW_CORS` / `AllowCors` | *(empty, or extra comma-separated origins)* | `https://regextester.github.io` and `localhost` are always allowed in code; this adds more |
+| all four | `ALLOW_CORS` / `AllowCors` | *(empty, or extra comma-separated origins)* | `https://regextester.github.io` and `localhost` are always allowed in code; this adds more |
 | api-dotnet | `Cosmos__ConnectionString` | `<your-cosmos-connection-string>` | App Service flattens nested config keys with `__` |
 | api-dotnet | `Cosmos__Database` | `regex-tester-db` | |
 | api-dotnet | `Cosmos__Container` | `telemetry` | |
@@ -89,17 +92,25 @@ az cosmosdb keys list --name regex-tester-cosmos --resource-group regex-tester \
 | api-python | `COSMOS_DATABASE` | `regex-tester-db` | |
 | api-python | `COSMOS_CONTAINER` | `telemetry` | |
 | api-python | `ENVIRONMENT` | `production` | **required** — see warning below |
+| api-java | `COSMOS_CONNECTION_STRING` | `<your-cosmos-connection-string>` | |
+| api-java | `COSMOS_DATABASE` | `regex-tester-db` | defaults to this value if unset |
+| api-java | `COSMOS_CONTAINER` | `telemetry` | defaults to this value if unset |
+| api-java | `ENVIRONMENT` | `production` | **required** — see warning below |
+| api-java | `PORT` | *(leave unset)* | App Service injects its own `PORT`; code defaults to 5300 only for local dev |
 
-> **`ENVIRONMENT` warning.** `api-python` defaults `ENVIRONMENT` to `development` when the setting
-> is absent. In development mode it opens CORS to any `http(s)://localhost[:port]` origin. If you
-> deploy without setting `ENVIRONMENT=production`, the deployed instance keeps reflecting localhost
-> origins in production.
+> **`ENVIRONMENT` warning.** `api-python` and `api-java` both default `ENVIRONMENT` to `development`
+> when the setting is absent. In development mode they open CORS to any `http(s)://localhost[:port]`
+> origin. If you deploy without setting `ENVIRONMENT=production`, the deployed instance keeps
+> reflecting localhost origins in production.
 >
 > **Nothing in CI sets this for you.** It is a one-time provisioning step you must perform here, and
 > re-check whenever the web app is recreated. Verify it with:
 >
 > ```bash
 > az webapp config appsettings list --name regex-tester-api-python \
+>   --resource-group regex-tester --query "[?name=='ENVIRONMENT']"
+>
+> az webapp config appsettings list --name regex-tester-api-java \
 >   --resource-group regex-tester --query "[?name=='ENVIRONMENT']"
 > ```
 
@@ -125,11 +136,17 @@ az webapp config set --name regex-tester-api-python --resource-group regex-teste
   --startup-file "python -m uvicorn src.main:app --host 0.0.0.0 --port \$PORT"
 ```
 
+`api-java` needs **no** startup command at all. Its `pom.xml` sets `<finalName>app</finalName>`, so
+the deployed artifact is `app.jar` — exactly what App Service's Java SE container runs by default
+(`java -jar /home/site/wwwroot/app.jar`). Do not set a startup command for it; if one was set by
+mistake, clear it with `az webapp config set --name regex-tester-api-java --resource-group
+regex-tester --startup-file ""`.
+
 ## 4. Creating deployment credentials
 
 ### Currently wired: a service-principal secret (`AZURE_CREDENTIALS`)
 
-**This is what the committed workflows in `.github/workflows/` actually use today.** All three
+**This is what the committed workflows in `.github/workflows/` actually use today.** All four
 backend deploy workflows authenticate with `azure/login@v2` and `creds: ${{ secrets.AZURE_CREDENTIALS }}`,
 a JSON service-principal secret:
 
@@ -146,7 +163,7 @@ it periodically.
 ### Recommended improvement: OIDC / federated credentials
 
 OIDC avoids storing any long-lived secret in GitHub at all, but **adopting it requires editing the
-three deploy workflows** — as committed today they use `AZURE_CREDENTIALS`, not `client-id` /
+four deploy workflows** — as committed today they use `AZURE_CREDENTIALS`, not `client-id` /
 `tenant-id` / `subscription-id`. Treat the steps below as a migration, not something already in
 effect:
 
@@ -180,7 +197,7 @@ secret is referenced anywhere in this repo.
 
 | Secret | Used by | What it is | How to generate |
 |---|---|---|---|
-| `AZURE_CREDENTIALS` | `deploy-api-dotnet.yml`, `deploy-api-nodejs.yml`, `deploy-api-python.yml` | Service-principal JSON for `azure/login@v2` | `az ad sp create-for-rbac --sdk-auth` scoped to the `regex-tester` resource group (§4) |
+| `AZURE_CREDENTIALS` | `deploy-api-dotnet.yml`, `deploy-api-nodejs.yml`, `deploy-api-python.yml`, `deploy-api-java.yml` | Service-principal JSON for `azure/login@v2` | `az ad sp create-for-rbac --sdk-auth` scoped to the `regex-tester` resource group (§4) |
 | `PAGES_DEPLOY_TOKEN` | `deploy-ui-vuejs.yml` only | A GitHub [personal access token](https://github.com/settings/tokens) with `repo` scope on the external `RegExTester/regextester.github.io` repository | Create a fine-grained or classic PAT with write access to that repo's contents |
 
 Add secrets at **Settings → Secrets and variables → Actions → New repository secret** on this
@@ -199,7 +216,7 @@ before publishing:
 - `.nojekyll` — an empty marker file so GitHub Pages does not run its Jekyll processing step over
   the built assets.
 
-`ui-vuejs/.env.production` points the three engine base URLs at the live Azure hosts
+`ui-vuejs/.env.production` points the four engine base URLs at the live Azure hosts
 (`https://regex-tester-api-*.azurewebsites.net`); it's baked into the build at `npm run build-prod`
 time, so no runtime configuration is needed on Pages.
 
@@ -210,14 +227,14 @@ it (**Settings → Pages → Source: Deploy from a branch → `master` / root**)
 ## 7. CI
 
 `contract-tests.yml` runs on every push to `main` and on every pull request. It matrix-builds all
-three backends, starts each on its real port (5000/5100/5200), polls
+four backends, starts each on its real port (5000/5100/5200/5300), polls
 `GET /api/capabilities` with `curl` (up to 30 times, 2 s apart) until ready, then runs the
 [tests/contract/](tests/contract/) vitest suite against it with `BASE_URL` set accordingly. This is
 the gate that proves a change didn't break the shared contract on any engine.
 
-The four deploy workflows are each **path-filtered** to their own project directory plus their own
+The five deploy workflows are each **path-filtered** to their own project directory plus their own
 workflow file (e.g. `deploy-api-python.yml` only triggers on changes under `api-python/**` or to
-itself), so editing one backend never redeploys the other two, and editing the frontend never
+itself), so editing one backend never redeploys the others, and editing the frontend never
 redeploys any backend. Every deploy workflow also supports manual `workflow_dispatch`.
 
 ### Deploys are gated on a green test suite
@@ -238,8 +255,8 @@ jobs:
 
 Consequences worth knowing:
 
-- **All three engines must be green, for every deploy — including the frontend.** The backends
-  implement one shared contract and the frontend talks to all three, so a red `api-python` blocks a
+- **All four engines must be green, for every deploy — including the frontend.** The backends
+  implement one shared contract and the frontend talks to all four, so a red `api-python` blocks a
   `ui-vuejs` deploy as well. This is intentional.
 - **`workflow_dispatch` is gated too.** There is deliberately no `skip_tests` input; a manual deploy
   runs the same suite. If you genuinely must ship past a red suite, fix or quarantine the test in a
@@ -262,6 +279,7 @@ with *Contract tests* as a required status check. The two are complements, not s
 curl -s https://regex-tester-api-dotnet.azurewebsites.net/api/capabilities | grep -o '"engineKey":"[A-Z]*"'
 curl -s https://regex-tester-api-nodejs.azurewebsites.net/api/capabilities | grep -o '"engineKey":"[A-Z]*"'
 curl -s https://regex-tester-api-python.azurewebsites.net/api/capabilities | grep -o '"engineKey":"[A-Z]*"'
+curl -s https://regex-tester-api-java.azurewebsites.net/api/capabilities | grep -o '"engineKey":"[A-Z]*"'
 
 # Each backend: a simple match should come back populated
 curl -s -X POST https://regex-tester-api-python.azurewebsites.net/api/regex \
@@ -272,7 +290,7 @@ curl -s -X POST https://regex-tester-api-python.azurewebsites.net/api/regex \
 curl -sI https://regex-tester-api-dotnet.azurewebsites.net/ | grep -i location
 ```
 
-Then open `https://regextester.github.io/`, switch the engine dropdown between all three backends,
+Then open `https://regextester.github.io/`, switch the engine dropdown between all four backends,
 and confirm each returns matches without a CORS error in the browser console.
 
 ## 9. Rollback and troubleshooting
@@ -281,8 +299,8 @@ and confirm each returns matches without a CORS error in the browser console.
   use `az webapp deployment list-publishing-profiles` / the Azure Portal's deployment slots/history
   to redeploy a prior package. This repo does not currently use deployment slots.
 - **CORS failures**: confirm `ALLOW_CORS` / `AllowCors` on the backend includes the calling origin,
-  and for api-python confirm `ENVIRONMENT=production` is actually set (otherwise it's not a CORS
-  bug, it's overly-permissive dev CORS silently active).
+  and for api-python and api-java confirm `ENVIRONMENT=production` is actually set (otherwise it's
+  not a CORS bug, it's overly-permissive dev CORS silently active).
 - **App Service cold starts vs. the 5 s request timeout**: a cold Linux App Service instance can
   take longer than 5 s to serve its first request after idling, which the *client* sees as the
   backend's own "request timed out" body (still HTTP 200) rather than a network error. Consider an
@@ -293,19 +311,23 @@ and confirm each returns matches without a CORS error in the browser console.
   `az webapp config show --name regex-tester-api-python --resource-group regex-tester --query linuxFxVersion`
   and re-run the `az webapp config set --startup-file ...` command from §3 — a redeploy through the
   Portal or a manual package push can reset it.
+- **api-java "Application Error"**: the Java SE container runs `app.jar` from `/home/site/wwwroot`.
+  If the deployed artifact is named anything else (e.g. `regex-tester-api-java-1.0.0.jar`), the
+  container has nothing to start. Confirm `<finalName>app</finalName>` is still in `api-java/pom.xml`
+  and that `deploy-api-java.yml` uploads `api-java/target/app.jar`.
 - **Telemetry silently absent**: an empty `COSMOS_CONNECTION_STRING` / `Cosmos__ConnectionString`
   disables telemetry with no error anywhere (by design, so a Cosmos outage or missing config never
   breaks the API). If telemetry documents aren't appearing, first confirm the setting is actually
-  populated, then confirm the container's partition key is `/engineKey` (§2).
+  populated, then confirm the container's partition key is `/timestamp` (§2).
 
 ## 10. Cost note
 
-An `S1` App Service Plan (one plan, hosting all three backends as separate web apps) and a 400 RU/s
+An `S1` App Service Plan (one plan, hosting all four backends as separate web apps) and a 400 RU/s
 Cosmos DB container are **not free tier** — expect a modest but real monthly cost. Cheaper options
 for a personal/demo deployment:
 
 - App Service: a `B1` (Basic) plan is cheaper than `S1` but has no Always On on some regions/tiers
-  and fewer deployment slots; a `F1` (Free) plan exists but cannot run three separate app instances
+  and fewer deployment slots; a `F1` (Free) plan exists but cannot run four separate app instances
   reliably and has a daily compute quota.
 - Cosmos DB: switch the container to **serverless** billing (pay-per-request instead of provisioned
   RU/s) if traffic is low and bursty, which suits a demo/portfolio project better than a fixed

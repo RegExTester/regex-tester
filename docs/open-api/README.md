@@ -6,10 +6,11 @@
 | [api-dotnet.v1.json](api-dotnet.v1.json) | Generated | Live document exported from api-dotnet's `GET /openapi/v1.json`. |
 | [api-nodejs.v1.json](api-nodejs.v1.json) | Generated | Live document exported from api-nodejs's `GET /openapi/v1.json`. |
 | [api-python.v1.json](api-python.v1.json) | Generated | Live document exported from api-python's `GET /openapi/v1.json`. |
+| [api-java.v1.json](api-java.v1.json) | Generated | Live document exported from api-java's `GET /openapi/v1.json`. |
 
 ## Regenerating the per-backend documents
 
-The three `*.v1.json` files are **not** hand-edited. Each is a snapshot of the document a running
+The four `*.v1.json` files are **not** hand-edited. Each is a snapshot of the document a running
 backend serves at `GET /openapi/v1.json`, exported and pretty-printed. Regenerate them whenever a
 backend's controllers/routes/schemas change.
 
@@ -24,6 +25,9 @@ Set-Location api-nodejs; node src/index.js
 
 # Python — http://localhost:5200
 Set-Location api-python; .\.venv\Scripts\python.exe -m uvicorn src.main:app --port 5200
+
+# Java — http://localhost:5300
+Set-Location api-java; mvn package -DskipTests; java -jar target/app.jar
 ```
 
 Then, with the backend running, export its document (run from the repository root):
@@ -32,6 +36,7 @@ Then, with the backend running, export its document (run from the repository roo
 node -e "fetch('http://localhost:5000/openapi/v1.json').then(r=>r.json()).then(o=>require('fs').writeFileSync('docs/open-api/api-dotnet.v1.json', JSON.stringify(o,null,2)+'\n'))"
 node -e "fetch('http://localhost:5100/openapi/v1.json').then(r=>r.json()).then(o=>require('fs').writeFileSync('docs/open-api/api-nodejs.v1.json', JSON.stringify(o,null,2)+'\n'))"
 node -e "fetch('http://localhost:5200/openapi/v1.json').then(r=>r.json()).then(o=>require('fs').writeFileSync('docs/open-api/api-python.v1.json', JSON.stringify(o,null,2)+'\n'))"
+node -e "fetch('http://localhost:5300/openapi/v1.json').then(r=>r.json()).then(o=>require('fs').writeFileSync('docs/open-api/api-java.v1.json', JSON.stringify(o,null,2)+'\n'))"
 ```
 
 `ConvertTo-Json` is deliberately avoided here — it mangles deeply nested OpenAPI documents (arrays

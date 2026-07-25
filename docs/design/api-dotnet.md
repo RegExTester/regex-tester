@@ -108,7 +108,7 @@ body, before the body is parsed or any field is validated.
 
 - Implements `ITelemetryService` (registered as Singleton)
 - Logs each regex request to Azure Cosmos DB asynchronously
-- Logged fields (12, standardized across all three backends): id, engineKey, timestamp, host,
+- Logged fields (12, standardized across all four backends): id, engineKey, timestamp, host,
   userAgent, pattern, text, replace, options, durationMs, matchCount, error
 - Partition key: `/timestamp`
 - Graceful degradation: no-op when connection string is empty

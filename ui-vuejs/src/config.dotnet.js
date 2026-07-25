@@ -2,6 +2,7 @@ const apiBase = import.meta.env.VITE_API_DOTNET
 
 export const CONFIG_DOTNET = {
   DEFAULT_OPTIONS: 1 | 2 | 4 | 1024, // IgnoreCase | Multiline | ExplicitCapture | NonBacktracking
+  DOCS_URL: 'https://learn.microsoft.com/en-us/dotnet/standard/base-types/regular-expression-options',
   REGEX_OPTIONS: {
     IgnoreCase:              { Value: 1 << 0,  Name: 'Ignore Case' },
     Multiline:               { Value: 1 << 1,  Name: 'Multiline' },

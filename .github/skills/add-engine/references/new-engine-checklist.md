@@ -12,7 +12,7 @@ name (e.g. `rust`), `<ENGINE>` the uppercase engine key (e.g. `RUST`).
 ## Project scaffold
 
 - [ ] `api-<engine>/` created, mirroring the existing separation of concerns
-- [ ] Listens on the next free port (**5300** if the current three are unchanged)
+- [ ] Listens on the next free port (**5400** if the current four are unchanged)
 - [ ] `ENGINE_KEY = "<ENGINE>"` declared **once** and reused by capabilities *and* telemetry
 - [ ] Dependencies pinned to explicit versions
 - [ ] A `.gitignore` entry exists for the language's build/venv output
@@ -74,9 +74,9 @@ name (e.g. `rust`), `<ENGINE>` the uppercase engine key (e.g. `RUST`).
 
 ## Conformance suite — the definition of done
 
-- [ ] Passes 100 % against `BASE_URL=http://localhost:5300`
+- [ ] Passes 100 % against the new engine's `BASE_URL`
 - [ ] The suite was **not** modified to accommodate the engine
-- [ ] All pre-existing backends still pass (5000, 5100, 5200)
+- [ ] All pre-existing backends still pass (5000, 5100, 5200, 5300)
 
 ## Frontend
 
@@ -84,6 +84,7 @@ name (e.g. `rust`), `<ENGINE>` the uppercase engine key (e.g. `RUST`).
 - [ ] Registered in `ui-vuejs/src/config.js`
 - [ ] `VITE_API_<ENGINE>` added to **both** `.env` and `.env.production`
 - [ ] Engine appears in the dropdown; options render from capabilities with no per-engine branching
+- [ ] `DOCS_URL` set in `config.<engine>.js` so the syntax-reference link renders without a template change
 - [ ] Carried-bits round trip verified in a browser: set a bit this engine lacks on another engine,
       switch to this one and back, confirm the bit survives in the URL
 - [ ] `npm run build-prod` succeeds
@@ -93,7 +94,7 @@ name (e.g. `rust`), `<ENGINE>` the uppercase engine key (e.g. `RUST`).
 - [ ] `.github/workflows/deploy-api-<engine>.yml` added, path-filtered + `workflow_dispatch`
 - [ ] Deploy job is **gated on the test suite** — a `test` job with
       `uses: ./.github/workflows/contract-tests.yml` and `needs: test` on `build-and-deploy`,
-      matching the four existing deploy workflows. Never pass `secrets: inherit` to it.
+      matching the existing deploy workflows. Never pass `secrets: inherit` to it.
 - [ ] The new engine is added to the `contract-tests.yml` matrix, so it gates every *other*
       project's deploys too
 - [ ] Uses `azure/login@v2` with `secrets.AZURE_CREDENTIALS` and `azure/webapps-deploy@v3`
@@ -113,13 +114,16 @@ name (e.g. `rust`), `<ENGINE>` the uppercase engine key (e.g. `RUST`).
 - [ ] Root `ARCHITECTURE.md` component diagram, project table and divergences
 - [ ] `DEPLOYMENT.md` provisioning, app settings and verification steps
 - [ ] `CLAUDE.md` project table, commands, key files and a new column in the flag table
+- [ ] `docs/design/api-contract.md` §3 flag registry column and §7 divergence table column
 - [ ] `docs/open-api/README.md` regeneration command
+- [ ] `tests/contract/README.md` start command + `package.json` `test:<engine>` script
+- [ ] `.github/skills/*/references/repo-map.md` and `conventions.md` (identical copies — keep them in sync)
 - [ ] Every new relative link resolves to a file that exists
 
 ## Final
 
-- [ ] All four backends build and start cleanly
-- [ ] Conformance suite green on all four ports
+- [ ] All backends build and start cleanly
+- [ ] Conformance suite green on every port
 - [ ] **Every server started during this work is killed**
 - [ ] Working tree contains no stray build output or secrets
 - [ ] Committed with a message explaining the engine choice and the flag-mapping decisions

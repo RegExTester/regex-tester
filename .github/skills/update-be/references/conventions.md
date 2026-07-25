@@ -54,7 +54,7 @@ Divergences must be **documented**, not accidental.
     must set `ENVIRONMENT=production` or localhost stays allowed. **No workflow sets this**; it is an
     App Service app setting applied at provisioning time (DEPLOYMENT.md §3).
   - **Known gap:** api-nodejs currently reflects localhost in *every* environment. If you touch its CORS,
-    fix this to match the other two.
+    fix this to match the other three.
 
 ## Telemetry
 
@@ -66,12 +66,12 @@ Divergences must be **documented**, not accidental.
 - **api-dotnet passes the partition key value explicitly** (`new PartitionKey(item.timestamp)`). It must
   always match the container path. A mismatch fails every write with `PartitionKeyMismatch` — and because
   telemetry swallows all errors, it fails completely silently.
-- Standardized 12-field document, identical camelCase on all three: `id`, `engineKey`, `timestamp`,
+- Standardized 12-field document, identical camelCase on all four: `id`, `engineKey`, `timestamp`,
   `host`, `userAgent`, `pattern`, `text`, `replace`, `options` (integer), `durationMs`, `matchCount`, `error`.
 - **Strictly fire-and-forget.** Never awaited on the request path; every error swallowed. .NET uses
   `Task.Run` with `CancellationToken.None`, Node leaves the promise unawaited with `.catch()`, Python uses
-  FastAPI `BackgroundTasks`. api-dotnet used to await it, so a Cosmos outage returned HTTP 500 to users —
-  do not regress this.
+  FastAPI `BackgroundTasks`, Java queues onto a single daemon `ExecutorService` thread. api-dotnet used to
+  await it, so a Cosmos outage returned HTTP 500 to users — do not regress this.
 - An empty connection string disables telemetry silently. A bad or unreachable one is caught at init so
   **no backend ever fails to start**.
 - Do not collect client IPs. `host` is the Host header.
@@ -92,6 +92,6 @@ switch back, confirm it survives in the URL.
 
 A change is done when:
 
-- The conformance suite passes against **all three** backends
+- The conformance suite passes against **all four** backends
 - The new behaviour has a **new conformance test**
 - Docs that describe the changed behaviour are updated in the same commit

@@ -1,0 +1,53 @@
+name: Deploy api-java to Azure
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'api-java/**'
+      - '.github/workflows/deploy-api-java.yml'
+  workflow_dispatch:
+
+env:
+  AZURE_WEBAPP_NAME: regex-tester-api-java
+  JAVA_VERSION: '21'
+
+jobs:
+  # Gate: the full four-engine contract suite must pass for this exact commit before anything is
+  # deployed. No secrets are passed — the suite needs none, and the Azure credentials must not be
+  # exposed to it.
+  test:
+    uses: ./.github/workflows/contract-tests.yml
+
+  build-and-deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: api-java
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: microsoft
+          java-version: ${{ env.JAVA_VERSION }}
+          cache: maven
+
+      # Produces target/app.jar. The fixed name matters: App Service's Java SE runtime launches
+      # `java -jar /home/site/wwwroot/app.jar`, so no startup command has to be configured.
+      - name: Build
+        run: mvn -B -ntp package -DskipTests
+
+      - name: Login to Azure
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Deploy to Azure App Service
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ env.AZURE_WEBAPP_NAME }}
+          package: api-java/target/app.jar

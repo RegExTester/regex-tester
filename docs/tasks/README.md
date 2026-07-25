@@ -1,6 +1,10 @@
-# Task index — Shared v1 API Contract + api-python Backend
+# Task index
 
-Source plan: [docs/plan/2026-07-25-api-contract-and-python-backend.md](../plan/2026-07-25-api-contract-and-python-backend.md)
+Source plans:
+
+- [docs/plan/2026-07-25-api-contract-and-python-backend.md](../plan/2026-07-25-api-contract-and-python-backend.md) — TASK-01 … TASK-13
+- [docs/plan/2026-07-25-gate-deploys-on-tests.md](../plan/2026-07-25-gate-deploys-on-tests.md) — TASK-14
+- [docs/plan/2026-07-25-add-java-backend.md](../plan/2026-07-25-add-java-backend.md) — TASK-15 … TASK-18
 
 | Task | Title | Depends on | Status |
 |---|---|---|---|
@@ -18,6 +22,10 @@ Source plan: [docs/plan/2026-07-25-api-contract-and-python-backend.md](../plan/2
 | [TASK-12](TASK-12-project-documentation.md) | README, ARCHITECTURE and DEPLOYMENT documentation | 11 | Done |
 | [TASK-13](TASK-13-telemetry-partition-key-timestamp.md) | Revert the telemetry partition key to `/timestamp` | 11, 12 | Done |
 | [TASK-14](TASK-14-gate-deploys-on-tests.md) | Gate all deployments on a green test suite | 08, 13 | Done |
+| [TASK-15](TASK-15-api-java.md) | New backend: `api-java` (Spring Boot) | 02, 14 | Done |
+| [TASK-16](TASK-16-frontend-java-engine.md) | Frontend: register the Java engine | 15 | Done |
+| [TASK-17](TASK-17-cicd-api-java.md) | CI/CD: `api-java` deploy + contract-test matrix | 15 | Done |
+| [TASK-18](TASK-18-docs-api-java.md) | Documentation for `api-java` | 15 | Done |
 
 ## Execution order
 
@@ -41,6 +49,11 @@ graph LR
   T01 --> T08
   T08 --> T09 --> T10
   T10 --> T11 --> T12 --> T13 --> T14
+  T14 --> T15
+  T02 --> T15
+  T15 --> T16
+  T15 --> T17
+  T15 --> T18
 ```
 
 **Wave 1** — TASK-01 and TASK-02 (independent, parallel)
@@ -53,12 +66,20 @@ graph LR
 **Wave 8** — TASK-12
 **Wave 9** — TASK-13
 **Wave 10** — TASK-14
+**Wave 11** — TASK-15
+**Wave 12** — TASK-16, TASK-17, TASK-18 (parallel; disjoint file sets)
 
 TASK-09 and TASK-10 both modify `ui-vuejs/src/components/RegexTester.vue`, so they must run in
 **different waves** even though their concerns are otherwise disjoint. TASK-12 documents the telemetry
 behaviour TASK-11 delivers, so it must run after it. TASK-13 reverses one TASK-11 decision and must
 edit the documents TASK-12 wrote, so it runs after both. TASK-14 rewires the CI/CD workflows TASK-08
 created and must gate on the test suite as it stands after TASK-13, so it runs last.
+
+TASK-15 adds a fourth engine, so it must follow TASK-14 — the deploy gate it has to plug into. Its
+three follow-ups are strictly downstream of a working backend: TASK-16 needs a live
+`/api/capabilities` to render options from, TASK-17 needs the build and start commands, and TASK-18
+needs the generated OpenAPI snapshot. Those three own disjoint directories (`ui-vuejs/`,
+`.github/workflows/`, docs) and so run in parallel.
 
 ## File ownership
 
@@ -79,6 +100,11 @@ Each task owns a disjoint set of paths so parallel execution cannot conflict.
 | TASK-11 | `api-dotnet/Services/**`, `api-dotnet/Controllers/RegexController.cs`, `api-nodejs/src/services/telemetryService.js`, `api-nodejs/src/controllers/regexController.js`, `api-python/src/services/telemetry_service.py`, `api-python/src/routers/regex.py`, `api-python/requirements.txt` |
 | TASK-12 | `README.md`, `ARCHITECTURE.md`, `DEPLOYMENT.md`, `api-*/ARCHITECTURE.md`, `docs/design/*.md` (fixes only) |
 | TASK-13 | `api-dotnet/Services/TelemetryService.cs`, `api-nodejs/src/services/telemetryService.js`, `api-python/src/services/telemetry_service.py`, `DEPLOYMENT.md`, `ARCHITECTURE.md`, `api-*/ARCHITECTURE.md`, `docs/design/api-*.md`, `.github/skills/*/references/conventions.md` (partition-key references only) |
+| TASK-14 | `.github/workflows/**`, `DEPLOYMENT.md`, `ARCHITECTURE.md` (CI/CD sections only) |
+| TASK-15 | `api-java/**`, `.gitignore` |
+| TASK-16 | `ui-vuejs/**` |
+| TASK-17 | `.github/workflows/deploy-api-java.yml`, `.github/workflows/contract-tests.yml` |
+| TASK-18 | `api-java/ARCHITECTURE.md`, `docs/design/api-java.md`, `docs/design/api-contract.md`, `docs/open-api/api-java.v1.json`, `docs/open-api/README.md`, `README.md`, `ARCHITECTURE.md`, `DEPLOYMENT.md`, `CLAUDE.md` |
 
 TASK-01 and TASK-04 both touch `api-dotnet/` and the generated OpenAPI JSON, so they run in **different
 waves**. TASK-01 changes only XML doc comment prose; TASK-04 regenerates the OpenAPI JSON afterwards.

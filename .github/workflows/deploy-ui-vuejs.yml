@@ -12,7 +12,7 @@ env:
   NODE_VERSION: '22.x'
 
 jobs:
-  # Gate: the full three-engine contract suite must pass for this exact commit before anything is
+  # Gate: the full four-engine contract suite must pass for this exact commit before anything is
   # deployed. The frontend talks to all three backends against one shared contract, so a red backend
   # blocks the frontend deploy too. No secrets are passed — the suite needs none, and the Pages
   # deploy token must not be exposed to it.
