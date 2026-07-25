@@ -143,6 +143,18 @@ springdoc-openapi generates the document from the controller annotations and mod
 | 32768 | ShowCaptures | custom, stripped | Supported — populates single-element `captures` arrays |
 | 65536 | Sticky | — | No-op |
 | 131072 | Ascii | — | No-op — see below |
+| 262144 | UnixLines | `UNIX_LINES` | Supported — restricts `^`, `$` and `.` to `\n` only, excluding `\r\n`, `\r`, `\u0085`, `\u2028`, `\u2029` |
+| 524288 | Literal | `LITERAL` | Supported — the pattern is matched as a literal string |
+| 1048576 | UnicodeCase | `UNICODE_CASE` | Supported — see below |
+| 2097152 | CanonicalEquivalence | `CANON_EQ` | Supported — pattern `\u00E5` matches text `a\u030A` |
+
+These four are the only bits in the registry that **no other engine supports**;
+`java.util.regex.Pattern` is the sole source of them among the four backends.
+
+`UnicodeCase` overlaps `Unicode`: `UNICODE_CHARACTER_CLASS` implies `UNICODE_CASE`, so setting bit
+8192 already enables Unicode case folding. Bit 1048576 exists to request that folding on its own —
+Unicode-aware casing *without* making `\w`, `\d`, `\s` and `\b` Unicode-aware. Setting both is
+harmless and equivalent to setting `Unicode` alone.
 
 `Ascii` being unsupported here is deliberate, not an omission. `\w`, `\d` and `\b` are already
 ASCII-only in Java by default, so the bit would have nothing to do; Unicode-aware matching is

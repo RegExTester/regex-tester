@@ -185,6 +185,10 @@ be allocated to any future flag.
 | ShowCaptures | 32768 | custom (stripped before execution) | custom (stripped before execution) | custom (stripped before execution) | custom (stripped before execution) |
 | Sticky | 65536 | no-op | `y` flag | no-op | no-op |
 | Ascii | 131072 | no-op | no-op | `re.ASCII` | no-op |
+| UnixLines | 262144 | no-op | no-op | no-op | `UNIX_LINES` |
+| Literal | 524288 | no-op | no-op | no-op | `LITERAL` |
+| UnicodeCase | 1048576 | no-op | no-op | no-op | `UNICODE_CASE` |
+| CanonicalEquivalence | 2097152 | no-op | no-op | no-op | `CANON_EQ` |
 
 api-nodejs always applies the `g` and `d` flags internally regardless of the `Global`/`HasIndices`
 bits, so it returns every match and full index data unconditionally; those two bits remain in the
@@ -195,6 +199,15 @@ ASCII-oriented by default and opts *in* to Unicode character classes, whereas Py
 Unicode by default and opts *out*. Java also restricts named-group names to `[a-zA-Z][a-zA-Z0-9]*`,
 so `(?<my_group>x)` compiles on the other three engines but is a pattern error on Java (returned as
 a normal `error` string with HTTP 200).
+
+The top four bits (262144–2097152) are Java-only: `java.util.regex.Pattern` is the only one of the
+four engines offering them. Note that `UnicodeCase` (1048576) overlaps `Unicode` (8192) — Java's
+`UNICODE_CHARACTER_CLASS` implies `UNICODE_CASE`, so the separate bit exists only to request
+Unicode case folding *without* making `\w`, `\d`, `\s` and `\b` Unicode-aware.
+
+Python's `re.LOCALE` and `re.DEBUG` are deliberately left unallocated — the former cannot be used
+with `str` patterns at all, and the latter only writes to server stdout. See
+[docs/design/api-contract.md](docs/design/api-contract.md) §7.
 
 ### Deployment
 

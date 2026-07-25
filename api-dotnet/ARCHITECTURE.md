@@ -78,8 +78,8 @@ casts the result directly to `System.Text.RegularExpressions.RegexOptions` — n
 translation is needed because `RegExTesterOptions` deliberately reuses `RegexOptions`' own
 underlying integer values. `ShowCaptures` (32768) is stripped from the mask before that cast (it
 is a custom, non-.NET flag). Every other contract bit (`HasIndices`, `Global`, `Unicode`,
-`UnicodeSets`, `Sticky`, `Ascii`) is simply absent from the mask, so it's silently ignored rather
-than rejected.
+`UnicodeSets`, `Sticky`, `Ascii`, `UnixLines`, `Literal`, `UnicodeCase`, `CanonicalEquivalence`)
+is simply absent from the mask, so it's silently ignored rather than rejected.
 
 `GET /api/capabilities` reports `features.captures = "multi"` — the only one of the four engines
 to do so — because `System.Text.RegularExpressions.Group.Captures` retains every capture of a

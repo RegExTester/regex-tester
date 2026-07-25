@@ -80,20 +80,33 @@ flowchart TD
 
 ## 4. Regex Engine Specifics
 
-`options/RegexOptions.java`'s `SUPPORTED_PATTERN_FLAGS` maps exactly five contract bits to native
+`options/RegexOptions.java`'s `SUPPORTED_PATTERN_FLAGS` maps exactly nine contract bits to native
 `Pattern` flags: `IgnoreCase`→`CASE_INSENSITIVE`, `Multiline`→`MULTILINE`, `Singleline`→`DOTALL`,
 `IgnorePatternWhitespace`→`COMMENTS`, `Unicode`→`UNICODE_CHARACTER_CLASS` (which also implies
-`UNICODE_CASE`). `toPatternFlags()` only iterates this map, so every other contract bit
-(`ExplicitCapture`, `Compiled`, `RightToLeft`, `ECMAScript`, `CultureInvariant`, `NonBacktracking`,
-`HasIndices`, `Global`, `UnicodeSets`, `Sticky`, `Ascii`) is silently ignored rather than rejected.
-`ShowCaptures` (32768) is tested separately and never reaches `toPatternFlags()`.
+`UNICODE_CASE`), `UnixLines`→`UNIX_LINES`, `Literal`→`LITERAL`, `UnicodeCase`→`UNICODE_CASE` and
+`CanonicalEquivalence`→`CANON_EQ`. `toPatternFlags()` only iterates this map, so every other
+contract bit (`ExplicitCapture`, `Compiled`, `RightToLeft`, `ECMAScript`, `CultureInvariant`,
+`NonBacktracking`, `HasIndices`, `Global`, `UnicodeSets`, `Sticky`, `Ascii`) is silently ignored
+rather than rejected. `ShowCaptures` (32768) is tested separately and never reaches
+`toPatternFlags()`.
 
-Two engine-specific notes:
+The map is built with `Map.of`, which accepts at most 10 key/value pairs and now holds 9. **Adding a
+tenth flag is fine; an eleventh requires switching to `Map.ofEntries`.**
+
+The last four bits are supported *only* here — no other backend offers a native equivalent, which
+makes this engine the sole reason they exist in the registry at all.
+
+Three engine-specific notes:
 
 - **`Ascii` (131072) is unsupported here on purpose.** It is not an omission: `\w`, `\d` and `\b`
   are already ASCII-only in Java by default, so the bit would be a no-op. Java's Unicode-aware
   behaviour is opt-*in* via `Unicode`, the exact inverse of Python, where matching is Unicode-aware
   by default and `re.ASCII` opts out.
+- **`UnicodeCase` (1048576) overlaps `Unicode` (8192).** `UNICODE_CHARACTER_CLASS` implies
+  `UNICODE_CASE`, so bit 8192 already switches casing to Unicode rules. The separate bit exists so a
+  caller can request Unicode case folding *without* Unicode-aware `\w`, `\d`, `\s` and `\b`; setting
+  both is harmless and equivalent to setting `Unicode` alone.
+
 - **No pattern translation is needed.** Java spells named groups `(?<name>...)`, the same as .NET
   and JavaScript, so api-python's `(?P<name>...)` rewriting has no counterpart here. Java is
   stricter about the name itself, though: it accepts only `[a-zA-Z][a-zA-Z0-9]*`, so a pattern like

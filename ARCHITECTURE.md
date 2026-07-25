@@ -154,6 +154,14 @@ See [DEPLOYMENT.md](DEPLOYMENT.md).
   the engines where it means something. api-nodejs and api-java support `Unicode` (their engines are
   ASCII-by-default and opt in); api-python supports `Ascii` (its engine is Unicode-by-default and
   opts out); api-dotnet supports neither.
+- **Java-only `Pattern` flags**: `UnixLines` (262144), `Literal` (524288), `UnicodeCase` (1048576)
+  and `CanonicalEquivalence` (2097152) exist in the registry solely because
+  `java.util.regex.Pattern` offers them and no other engine of the four does. `UnicodeCase` overlaps
+  `Unicode`, since Java's `UNICODE_CHARACTER_CLASS` implies `UNICODE_CASE`; the separate bit exists
+  only to request Unicode case folding without Unicode-aware `\w`, `\d`, `\s` and `\b`.
+- **Deliberately unallocated**: Python's `re.LOCALE` and `re.DEBUG` are the only native options of
+  the four engines with no bit in the registry — the former cannot be used with `str` patterns, and
+  the latter writes only to the server's stdout. Every other native option has one.
 - **Named group syntax**: api-python rewrites `(?<name>...)` to Python's `(?P<name>...)` before
   compiling. api-java needs no rewriting but restricts group names to `[a-zA-Z][a-zA-Z0-9]*`, so a
   pattern like `(?<my_group>x)` is valid on three engines and a syntax error on Java — reported as a

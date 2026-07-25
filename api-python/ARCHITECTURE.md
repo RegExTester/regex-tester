@@ -73,9 +73,14 @@ flowchart TD
 `IgnoreCase`→`re.IGNORECASE`, `Multiline`→`re.MULTILINE`, `Singleline`→`re.DOTALL`,
 `IgnorePatternWhitespace`→`re.VERBOSE`, `Ascii`→`re.ASCII`. `to_re_flags()` only iterates this
 dict, so every other contract bit (`ExplicitCapture`, `Compiled`, `RightToLeft`, `ECMAScript`,
-`CultureInvariant`, `NonBacktracking`, `HasIndices`, `Global`, `Unicode`, `UnicodeSets`, `Sticky`)
-is silently ignored rather than rejected. `ShowCaptures` (32768) is tested separately
-(`FLAG_SHOW_CAPTURES`) and never reaches `to_re_flags()`.
+`CultureInvariant`, `NonBacktracking`, `HasIndices`, `Global`, `Unicode`, `UnicodeSets`, `Sticky`,
+`UnixLines`, `Literal`, `UnicodeCase`, `CanonicalEquivalence`) is silently ignored rather than
+rejected. `ShowCaptures` (32768) is tested separately (`FLAG_SHOW_CAPTURES`) and never reaches
+`to_re_flags()`.
+
+`re.LOCALE` and `re.DEBUG` are the only native `re` flags with no bit in the contract registry, and
+that is deliberate: `re.LOCALE` raises `ValueError` on the `str` patterns this API exclusively
+compiles, and `re.DEBUG` writes to the server's stdout, so a client could never observe it.
 
 `regex_processor.py` also performs two textual translations before handing text to `re`, since
 Python's regex syntax diverges from .NET/JavaScript's in these two specific ways:

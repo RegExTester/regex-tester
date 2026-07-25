@@ -27,6 +27,10 @@ FLAG_UNICODE_SETS = 16384
 FLAG_SHOW_CAPTURES = 32768
 FLAG_STICKY = 65536
 FLAG_ASCII = 131072
+FLAG_UNIX_LINES = 262144
+FLAG_LITERAL = 524288
+FLAG_UNICODE_CASE = 1048576
+FLAG_CANONICAL_EQUIVALENCE = 2097152
 
 # Bits this engine natively supports, mapped to their `re` flag.
 SUPPORTED_RE_FLAGS: dict[int, re.RegexFlag] = {
@@ -120,5 +124,21 @@ OPTION_REGISTRY: list[dict] = [
     {
         "value": FLAG_ASCII, "name": "Ascii", "flag": "ASCII", "supported": True,
         "description": "Makes \\w, \\W, \\b, \\B, \\d, \\D, \\s and \\S match only ASCII characters.",
+    },
+    {
+        "value": FLAG_UNIX_LINES, "name": "UnixLines", "flag": None, "supported": False,
+        "description": "Treats only \\n as a line terminator (Java UNIX_LINES). Python already behaves this way, so there is nothing to opt into; the bit is ignored.",
+    },
+    {
+        "value": FLAG_LITERAL, "name": "Literal", "flag": None, "supported": False,
+        "description": "Matches the pattern as a literal string (Java LITERAL). Not supported by this engine \u2014 use re.escape at the call site instead; the bit is ignored.",
+    },
+    {
+        "value": FLAG_UNICODE_CASE, "name": "UnicodeCase", "flag": None, "supported": False,
+        "description": "Case-folds using Unicode rather than US-ASCII rules (Java UNICODE_CASE). str patterns already do this, so there is nothing to opt into; the bit is ignored.",
+    },
+    {
+        "value": FLAG_CANONICAL_EQUIVALENCE, "name": "CanonicalEquivalence", "flag": None, "supported": False,
+        "description": "Matches characters with equal canonical decompositions (Java CANON_EQ). Not supported by this engine; the bit is ignored.",
     },
 ]

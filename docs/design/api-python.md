@@ -133,6 +133,14 @@ interactive docs UI at `docs_url="/scalar/v1"` (both configured in `main.py`).
 | 32768 | ShowCaptures | custom, stripped | Supported — populates single-element `captures` arrays |
 | 65536 | Sticky | — | No-op |
 | 131072 | Ascii | `re.ASCII` | Supported |
+| 262144 | UnixLines | — | No-op (Python already treats `\n` as the only line terminator) |
+| 524288 | Literal | — | No-op (use `re.escape` at the call site instead) |
+| 1048576 | UnicodeCase | — | No-op (`str` patterns already case-fold with Unicode semantics) |
+| 2097152 | CanonicalEquivalence | — | No-op |
+
+`re.LOCALE` and `re.DEBUG` deliberately have **no** bit in the registry: the former cannot be used
+with `str` patterns at all, and the latter writes only to the server's stdout so a client could
+never observe it. See [api-contract.md](api-contract.md) §7.
 
 `src/options.py` is the single source of truth for this table (`SUPPORTED_RE_FLAGS` and
 `OPTION_REGISTRY`); unsupported/unknown bits are masked out and silently ignored rather than

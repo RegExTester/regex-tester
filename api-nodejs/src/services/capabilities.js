@@ -26,6 +26,10 @@ const OPTION_REGISTRY = [
   { value: 32768, name: 'ShowCaptures', flag: null, supported: true, description: 'Custom flag: includes per-group and per-match capture arrays in the response. Stripped before the pattern is evaluated.' },
   { value: 65536, name: 'Sticky', flag: 'y', supported: true, description: 'Matches only starting at the current position (anchored matching).' },
   { value: 131072, name: 'Ascii', flag: null, supported: false, description: 'Restricts character classes to ASCII only. Not supported by this engine; the bit is ignored.' },
+  { value: 262144, name: 'UnixLines', flag: null, supported: false, description: "Treats only '\\n' as a line terminator (Java 'UNIX_LINES'). JavaScript also recognises '\\r', '\\u2028' and '\\u2029' and offers no flag to restrict that, so the bit is ignored." },
+  { value: 524288, name: 'Literal', flag: null, supported: false, description: "Matches the pattern as a literal string (Java 'LITERAL'). JavaScript has no flag that disables metacharacters; the bit is ignored." },
+  { value: 1048576, name: 'UnicodeCase', flag: null, supported: false, description: "Case-folds using Unicode rather than US-ASCII rules (Java 'UNICODE_CASE'). The 'u' and 'v' flags already imply this; the bit is ignored." },
+  { value: 2097152, name: 'CanonicalEquivalence', flag: null, supported: false, description: "Matches characters with equal canonical decompositions (Java 'CANON_EQ'). Not supported by this engine; the bit is ignored." },
 ];
 
 export const ENGINE_KEY = 'NODEJS';

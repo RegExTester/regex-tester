@@ -76,6 +76,10 @@ namespace RegExTester.Api.DotNet.Models
             new CapabilityOption { Value = 32768, Name = "ShowCaptures", Flag = null, Supported = true, Description = "Custom flag: include capture collections in each match and group in the response. Stripped before the remaining bits reach the underlying regex engine." },
             new CapabilityOption { Value = 65536, Name = "Sticky", Flag = null, Supported = false, Description = "Match only from the last match position (JS 'y' flag). Not supported by this engine; the bit is ignored." },
             new CapabilityOption { Value = 131072, Name = "Ascii", Flag = null, Supported = false, Description = "Restrict matching to ASCII characters (Python 're.ASCII'). Not supported by this engine; the bit is ignored." },
+            new CapabilityOption { Value = 262144, Name = "UnixLines", Flag = null, Supported = false, Description = "Treat only '\\n' as a line terminator (Java 'UNIX_LINES'). .NET already behaves this way, so there is nothing to opt into; the bit is ignored." },
+            new CapabilityOption { Value = 524288, Name = "Literal", Flag = null, Supported = false, Description = "Match the pattern as a literal string (Java 'LITERAL'). Not supported by this engine \u2014 use Regex.Escape at the call site instead; the bit is ignored." },
+            new CapabilityOption { Value = 1048576, Name = "UnicodeCase", Flag = null, Supported = false, Description = "Case-fold using Unicode rather than US-ASCII rules (Java 'UNICODE_CASE'). .NET already does this, so there is nothing to opt into; the bit is ignored." },
+            new CapabilityOption { Value = 2097152, Name = "CanonicalEquivalence", Flag = null, Supported = false, Description = "Match characters with equal canonical decompositions (Java 'CANON_EQ'). Not supported by this engine; the bit is ignored." },
         };
     }
 }

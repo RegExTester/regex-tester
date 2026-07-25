@@ -67,14 +67,7 @@ describe('GET /api/capabilities', () => {
   });
 
   it('gives every option a power-of-two value', async () => {
-   
-
-describe('GET /api/version (removed)', () => {
-  it('returns 404, since /api/version was merged into /api/capabilities', async () => {
-    const res = await get('/api/version');
-    expect(res.status).toBe(404);
-  });
-}); const res = await get('/api/capabilities');
+    const res = await get('/api/capabilities');
     const body = await res.json();
 
     for (const option of body.options) {
@@ -82,6 +75,17 @@ describe('GET /api/version (removed)', () => {
         true
       );
     }
+  });
+
+  it('gives every option a unique value and a unique name', async () => {
+    const res = await get('/api/capabilities');
+    const body = await res.json();
+
+    const values = body.options.map((option) => option.value);
+    const names = body.options.map((option) => option.name);
+
+    expect(new Set(values).size, `duplicate option values in [${values.join(', ')}]`).toBe(values.length);
+    expect(new Set(names).size, `duplicate option names in [${names.join(', ')}]`).toBe(names.length);
   });
 
   it('only pre-selects bits that are supported: true', async () => {
@@ -108,5 +112,12 @@ describe('GET /api/version (removed)', () => {
       limits.maxRequestBodyBytes,
       `maxRequestBodyBytes (${limits.maxRequestBodyBytes}) must exceed the sum of the field limits (${fieldLimitSum}), otherwise the maximum valid payload would itself be rejected with HTTP 413`
     ).toBeGreaterThan(fieldLimitSum);
+  });
+});
+
+describe('GET /api/version (removed)', () => {
+  it('returns 404, since /api/version was merged into /api/capabilities', async () => {
+    const res = await get('/api/version');
+    expect(res.status).toBe(404);
   });
 });

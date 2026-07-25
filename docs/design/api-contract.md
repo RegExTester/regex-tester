@@ -168,6 +168,10 @@ power of two after the highest allocated value.
 | 32768 | ShowCaptures | custom, stripped | custom, stripped | custom, stripped | custom, stripped |
 | 65536 | Sticky | — | `y` | — | — |
 | 131072 | Ascii | — | — | `ASCII` | — |
+| 262144 | UnixLines | — | — | — | `UNIX_LINES` |
+| 524288 | Literal | — | — | — | `LITERAL` |
+| 1048576 | UnicodeCase | — | — | — | `UNICODE_CASE` |
+| 2097152 | CanonicalEquivalence | — | — | — | `CANON_EQ` |
 
 A `—` means the engine has no native equivalent for that flag; it is still listed in
 `/api/capabilities` with `supported: false` and a `null` `flag`, and setting the bit is a no-op
@@ -290,9 +294,27 @@ documented so clients don't assume identical output everywhere:
 | `HasIndices`, `Global`, `UnicodeSets`, `Sticky` | no native equivalent; bits are accepted and ignored | native JS `RegExp` flags | no native equivalent; bits are accepted and ignored | no native equivalent; bits are accepted and ignored |
 | `Unicode` | no native equivalent; bit is accepted and ignored | native `u` flag | no-op — `str` patterns are already Unicode-aware | native `UNICODE_CHARACTER_CLASS` |
 | `Ascii` | no native equivalent; bit is accepted and ignored | no native equivalent; bit is accepted and ignored | native `re.ASCII` | no-op — Java is already ASCII-by-default, so `Unicode` is the meaningful bit instead |
+| `UnixLines` | no-op — `\n` is already the only line terminator for `^`/`$` | **not** equivalent — JS also treats `\r`, `\u2028` and `\u2029` as line terminators, but offers no flag to restrict that, so the bit is ignored and this engine stays divergent | no-op — `\n` is already the only line terminator | native `UNIX_LINES`; Java recognises `\r\n`, `\r`, `\u0085`, `\u2028` and `\u2029` by default and this bit turns them off |
+| `Literal` | no native equivalent; escape at the call site with `Regex.Escape` instead | no native equivalent; no JS flag disables metacharacters | no native equivalent; escape at the call site with `re.escape` instead | native `LITERAL` |
+| `UnicodeCase` | no-op — .NET already case-folds with Unicode semantics | no-op — `u`/`v` already imply Unicode case folding | no-op — `str` patterns already case-fold with Unicode semantics | native `UNICODE_CASE`. **Overlaps `Unicode`**: `UNICODE_CHARACTER_CLASS` implies `UNICODE_CASE`, so bit 8192 turns this on as a side effect. Bit 1048576 exists to request Unicode case folding *without* making `\w`, `\d`, `\s` and `\b` Unicode-aware |
+| `CanonicalEquivalence` | no native equivalent; bit is accepted and ignored | no native equivalent; bit is accepted and ignored | no native equivalent; bit is accepted and ignored | native `CANON_EQ` — matches characters whose full canonical decompositions are equal, e.g. pattern `\u00E5` matches text `a\u030A` |
 | Named group syntax | `(?<name>...)` native | `(?<name>...)` native | rewritten to `(?P<name>...)` before compiling | `(?<name>...)` native, but names are restricted to `[a-zA-Z][a-zA-Z0-9]*`, so e.g. `(?<my_group>x)` is a compile error here and valid elsewhere |
 | 15 s regex timeout enforcement | native `Regex` timeout | deadline checked between matches — cannot preempt one runaway match | deadline checked between matches — cannot preempt one runaway match | deadline checked inside a wrapping `CharSequence` — preempts mid-match |
 
 Engines MUST still accept and silently ignore any bit they don't implement (§4) — this table only
 explains *why* the same bitmask can produce different (but each individually correct) results per
 engine.
+
+### Deliberately unallocated native options
+
+The registry is not an exhaustive union of every constant in four standard libraries; it describes
+what a client can meaningfully *ask for*. Two Python `re` flags are therefore left without a bit,
+and must not be allocated one later without revisiting this:
+
+| Native flag | Why it has no bit |
+|---|---|
+| `re.LOCALE` | Raises `ValueError: cannot use LOCALE flag with a str pattern`. This API only ever compiles `str` patterns, so no engine could ever report it `supported: true`. |
+| `re.DEBUG` | Writes the pattern's parse tree to the **server's** stdout. It cannot change the response, so a client could never observe it — and the reserved bit `128` already belongs to this concept. |
+
+Every other native option of .NET's `RegexOptions`, JavaScript's `RegExp` flags, Python's `re` and
+Java's `Pattern` has an allocated bit.

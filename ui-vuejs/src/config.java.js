@@ -10,6 +10,10 @@ export const CONFIG_JAVA = {
     IgnorePatternWhitespace: { Value: 1 << 5,  Name: 'Ignore Pattern Whitespace' },
     Unicode:                 { Value: 1 << 13, Name: 'Unicode' },
     ShowCaptures:            { Value: 1 << 15, Name: 'Show Captures' },
+    UnixLines:               { Value: 1 << 18, Name: 'Unix Lines' },
+    Literal:                 { Value: 1 << 19, Name: 'Literal' },
+    UnicodeCase:             { Value: 1 << 20, Name: 'Unicode Case' },
+    CanonicalEquivalence:    { Value: 1 << 21, Name: 'Canonical Equivalence' },
   },
   API: {
     REGEX:        apiBase + '/api/regex',

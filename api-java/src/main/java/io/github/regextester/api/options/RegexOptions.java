@@ -33,6 +33,10 @@ public final class RegexOptions {
     public static final int SHOW_CAPTURES = 32768;
     public static final int STICKY = 65536;
     public static final int ASCII = 131072;
+    public static final int UNIX_LINES = 262144;
+    public static final int LITERAL = 524288;
+    public static final int UNICODE_CASE = 1048576;
+    public static final int CANONICAL_EQUIVALENCE = 2097152;
 
     /** Pre-selected bitmask the frontend defaults to for this engine (IgnoreCase | Multiline). */
     public static final int DEFAULT_OPTIONS = IGNORE_CASE | MULTILINE;
@@ -42,14 +46,22 @@ public final class RegexOptions {
      *
      * <p>Unicode maps to {@code UNICODE_CHARACTER_CLASS} because Java's {@code \w}, {@code \d},
      * {@code \s} and {@code \b} are ASCII-only by default; that flag makes them Unicode-aware and,
-     * per its javadoc, implies {@code UNICODE_CASE} as well.
+     * per its javadoc, implies {@code UNICODE_CASE} as well — which is why {@link #UNICODE_CASE}
+     * has its own bit only for requesting the case folding *without* the character-class change.
+     *
+     * <p>{@code Map.of} accepts at most 10 key/value pairs and this map now holds 9. The next flag
+     * added here must switch it to {@code Map.ofEntries}.
      */
     private static final Map<Integer, Integer> SUPPORTED_PATTERN_FLAGS = Map.of(
             IGNORE_CASE, Pattern.CASE_INSENSITIVE,
             MULTILINE, Pattern.MULTILINE,
             SINGLELINE, Pattern.DOTALL,
             IGNORE_PATTERN_WHITESPACE, Pattern.COMMENTS,
-            UNICODE, Pattern.UNICODE_CHARACTER_CLASS);
+            UNICODE, Pattern.UNICODE_CHARACTER_CLASS,
+            UNIX_LINES, Pattern.UNIX_LINES,
+            LITERAL, Pattern.LITERAL,
+            UNICODE_CASE, Pattern.UNICODE_CASE,
+            CANONICAL_EQUIVALENCE, Pattern.CANON_EQ);
 
     private RegexOptions() {
     }
@@ -122,5 +134,18 @@ public final class RegexOptions {
             new CapabilityOption(ASCII, "Ascii", null, false,
                     "Makes \\w, \\W, \\b, \\B, \\d, \\D, \\s and \\S match only ASCII characters. "
                             + "That is already Java's default, so there is nothing to opt into; the "
-                            + "bit is ignored. Use Unicode (8192) for the inverse."));
+                            + "bit is ignored. Use Unicode (8192) for the inverse."),
+            new CapabilityOption(UNIX_LINES, "UnixLines", "UNIX_LINES", true,
+                    "Only \\n is treated as a line terminator by ^, $ and . — excluding \\r\\n, \\r, "
+                            + "\\u0085, \\u2028 and \\u2029, which Java otherwise recognises."),
+            new CapabilityOption(LITERAL, "Literal", "LITERAL", true,
+                    "The pattern is matched as a literal string; metacharacters and escape "
+                            + "sequences lose their special meaning."),
+            new CapabilityOption(UNICODE_CASE, "UnicodeCase", "UNICODE_CASE", true,
+                    "Case-insensitive matching folds according to the Unicode standard rather than "
+                            + "US-ASCII. Unicode (8192) already implies this; use this bit to get "
+                            + "Unicode case folding without Unicode-aware \\w, \\d, \\s and \\b."),
+            new CapabilityOption(CANONICAL_EQUIVALENCE, "CanonicalEquivalence", "CANON_EQ", true,
+                    "Two characters match when their full canonical decompositions are equal, so "
+                            + "the pattern \\u00E5 matches the text a\\u030A."));
 }

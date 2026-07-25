@@ -106,6 +106,10 @@ Swagger UI interactive API explorer.
 | 32768 | ShowCaptures | custom | Populates capture arrays |
 | 65536 | Sticky | `y` flag | Supported |
 | 131072 | Ascii | — | No-op |
+| 262144 | UnixLines | — | No-op — JS also treats `\r`, `\u2028`, `\u2029` as line terminators and has no flag to restrict that |
+| 524288 | Literal | — | No-op (JS has no flag that disables metacharacters) |
+| 1048576 | UnicodeCase | — | No-op (`u`/`v` already imply Unicode case folding) |
+| 2097152 | CanonicalEquivalence | — | No-op |
 
 ## Request Timeout
 

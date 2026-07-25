@@ -74,7 +74,8 @@ that: `IgnoreCase`→`i`, `Multiline`→`m`, `Singleline`→`s`, `Unicode`→`u`
 itself, deleting unescaped whitespace and `#`-prefixed comments before the `RegExp` is constructed.
 `ShowCaptures` (32768) is masked out before `buildFlags()` runs. Every remaining contract bit
 (`ExplicitCapture`, `Compiled`, `RightToLeft`, `ECMAScript`, `CultureInvariant`, `NonBacktracking`,
-`Ascii`) has no corresponding branch, so it's silently ignored.
+`Ascii`, `UnixLines`, `Literal`, `UnicodeCase`, `CanonicalEquivalence`) has no corresponding branch,
+so it's silently ignored.
 
 `GET /api/capabilities` reports `features.captures = "single"` — `String.matchAll`/`RegExp` only
 exposes the last capture per group.
