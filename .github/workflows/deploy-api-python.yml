@@ -37,13 +37,30 @@ jobs:
           cache-dependency-path: api-python/requirements.txt
 
       - name: Create deployment package
-        # Oryx-free layout: Azure App Service's Python image looks for dependencies under
-        # .python_packages/lib/site-packages next to the app code, so pip-install straight into
-        # that folder instead of relying on Oryx's build-time `pip install -r requirements.txt`.
+        # The dependencies are vendored here rather than built on the server: no Oryx build runs
+        # for this app, so `/home/site/wwwroot` arrives with no `antenv` virtualenv and no
+        # `oryx-manifest.toml`.
+        #
+        # They must NOT go in `.python_packages/lib/site-packages`. App Service's Python image no
+        # longer puts that path on PYTHONPATH — its startup-script generator now looks only for an
+        # `antenv` virtualenv or an `__oryx_packages__` directory, and on finding neither it starts
+        # the app against the bare system interpreter, which dies with "No module named uvicorn".
+        # A plain, non-hidden directory plus an explicit PYTHONPATH in the startup command below
+        # keeps this independent of whatever Oryx names its package directory next.
         run: |
           mkdir -p ../deploy
           cp -r src requirements.txt ../deploy/
-          pip install --target ../deploy/.python_packages/lib/site-packages -r requirements.txt
+          pip install --target ../deploy/site-packages -r requirements.txt
+
+      - name: Verify the package is self-contained
+        # Catches a broken package here, in a red build, instead of as a boot loop in App Service.
+        # `uvicorn` and `fastapi` are the two imports the startup command cannot survive without.
+        run: |
+          for pkg in uvicorn fastapi pydantic; do
+            test -d "../deploy/site-packages/$pkg" || { echo "::error::$pkg missing from deployment package"; exit 1; }
+          done
+          test -f ../deploy/src/main.py || { echo "::error::src/main.py missing from deployment package"; exit 1; }
+          PYTHONPATH=../deploy/site-packages python -c "import uvicorn, fastapi; print('vendored deps import OK')"
 
       - name: Login to Azure
         uses: azure/login@v2
@@ -59,6 +76,14 @@ jobs:
           # repo needing the AZURE_RESOURCE_GROUP secret — an unset secret expanded to nothing and
           # broke the deploy with "argument --resource-group/-g: expected one argument". This keeps
           # the workflow structurally identical to deploy-api-dotnet and deploy-api-nodejs.
+          #
+          # PYTHONPATH is exported here because nothing else will: without an Oryx build there is no
+          # virtualenv to activate, so the vendored `site-packages` has to be named explicitly.
+          # `/home/site/wwwroot` is included too so `src.main` resolves regardless of the working
+          # directory the platform picks. The `env` prefix (rather than a bare `VAR=value` one) is
+          # deliberate — App Service may `exec` this line, and `exec VAR=value cmd` is a syntax
+          # error, while `exec env VAR=value cmd` is not.
+          #
           # $PORT is passed through literally for App Service to expand at runtime; no shell is
           # involved here, so it needs no escaping.
-          startup-command: 'python -m uvicorn src.main:app --host 0.0.0.0 --port $PORT'
+          startup-command: 'env PYTHONPATH=/home/site/wwwroot/site-packages:/home/site/wwwroot python -m uvicorn src.main:app --host 0.0.0.0 --port $PORT'

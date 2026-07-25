@@ -216,12 +216,20 @@ FastAPI auto-generates the OpenAPI document from the Pydantic models and route d
 - **Platform**: Azure App Service (Linux, Python 3.13)
 - **URL**: `https://regex-tester-api-python-c9apa4ekfta6hac6.centralus-01.azurewebsites.net`
 - **Port**: 5200 (dev)
-- **Startup command**: `python -m uvicorn src.main:app --host 0.0.0.0 --port $PORT`
+- **Startup command**:
+  `env PYTHONPATH=/home/site/wwwroot/site-packages:/home/site/wwwroot python -m uvicorn src.main:app --host 0.0.0.0 --port $PORT`
 - **Required app setting**: `ENVIRONMENT=production` — must be set explicitly on the App Service
   (the code default of `development` is intended for local `uvicorn` runs only; deploying without
   this setting would leave the localhost-reflecting CORS rule active in production). No workflow
   sets it — see §11.
 - **Deployment package**: `src/` and `requirements.txt` copied into a `deploy/` directory, with
-  dependencies pip-installed directly into
-  `deploy/.python_packages/lib/site-packages` (the Oryx-free layout Azure App Service's Python
-  image expects), then uploaded via `azure/webapps-deploy@v3`.
+  dependencies pip-installed into `deploy/site-packages`, then uploaded via
+  `azure/webapps-deploy@v3`.
+- **Why PYTHONPATH is set explicitly**: no Oryx build runs for this app, so `/home/site/wwwroot`
+  has no `antenv` virtualenv and no `oryx-manifest.toml`. App Service's startup-script generator
+  looks only for `antenv` or `__oryx_packages__`; finding neither, it launches the app against the
+  bare system interpreter. Naming the vendored directory on `PYTHONPATH` is what makes the
+  dependencies importable, and keeps the app independent of Oryx's package-directory conventions.
+  An earlier revision installed into `.python_packages/lib/site-packages` — a path the image used
+  to add to `PYTHONPATH` automatically but no longer does — which failed at boot with
+  `No module named uvicorn`.

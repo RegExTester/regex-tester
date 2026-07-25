@@ -154,8 +154,14 @@ manual command:
 
 ```bash
 az webapp config set --name regex-tester-api-python --resource-group regex-tester \
-  --startup-file "python -m uvicorn src.main:app --host 0.0.0.0 --port \$PORT"
+  --startup-file "env PYTHONPATH=/home/site/wwwroot/site-packages:/home/site/wwwroot python -m uvicorn src.main:app --host 0.0.0.0 --port \$PORT"
 ```
+
+The `PYTHONPATH` prefix is required, not cosmetic. `api-python` ships its dependencies vendored in
+`site-packages` and runs no Oryx build, so App Service finds neither an `antenv` virtualenv nor an
+`__oryx_packages__` directory and starts the app on the bare system interpreter. Without the
+explicit path the app dies at boot with `No module named uvicorn`, App Service restarts it, and the
+site serves the default placeholder page while the log loops on that one line.
 
 `api-java` needs **no** startup command at all. Its `pom.xml` sets `<finalName>app</finalName>`, so
 the deployed artifact is `app.jar` — exactly what App Service's Java SE container runs by default
