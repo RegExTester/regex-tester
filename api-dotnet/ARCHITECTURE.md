@@ -138,7 +138,9 @@ runtime source of truth for what `GET /api/capabilities` actually reports.
   `timestamp` (UTC ISO-8601 `"o"` format), `host`, `userAgent`, `pattern`, `text`, `replace`,
   `options` (int bitmask), `durationMs`, `matchCount`, `error`.
 - Container `regex-tester-db`/`telemetry` is created (if missing) with manual throughput 400 RU/s
-  and partition key `/engineKey`.
+  and partition key `/timestamp`. `CreateItemAsync` passes `new PartitionKey(item.timestamp)`, which
+  must always match that path — passing `engineKey` instead would fail every write with
+  `PartitionKeyMismatch`, silently, because the surrounding `catch` swallows it.
 - An empty `Cosmos:ConnectionString` makes `RecordTelemetry` a no-op (client/container stay
   `null`). A bad or unreachable connection string is caught inside `InitCosmos`'s own `try/catch`
   and logged at warning level — it can never prevent the app from starting.

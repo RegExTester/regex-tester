@@ -129,7 +129,7 @@ The document has 12 fields, matching the other two backends exactly: `id` (`rand
 `engineKey` (`ENGINE_KEY` exported from `capabilities.js` = `"NODEJS"` — the same constant
 `GET /api/capabilities` uses), `timestamp` (`new Date().toISOString()`), `host`, `userAgent`,
 `pattern`, `text`, `replace`, `options`, `durationMs`, `matchCount`, `error`. The container is
-created (if missing) with partition key `/engineKey` and throughput 400 RU/s.
+created (if missing) with partition key `/timestamp` and throughput 400 RU/s.
 
 ## 8. OpenAPI Generation and Where the Document Is Served
 

@@ -1,7 +1,7 @@
 """Cosmos DB telemetry for api-python.
 
 Mirrors the .NET (`TelemetryService`) and Node.js (`telemetryService`) implementations: lazy
-client init, silently disabled when `COSMOS_CONNECTION_STRING` is empty, `/engineKey` partition
+client init, silently disabled when `COSMOS_CONNECTION_STRING` is empty, `/timestamp` partition
 key, and fire-and-forget so a Cosmos outage can never affect the `POST /api/regex` response.
 Because FastAPI's route handler is synchronous, the write itself is dispatched as a
 `BackgroundTasks` callable (see `routers/regex.py`) rather than awaited on the request path.
@@ -36,9 +36,14 @@ def init_cosmos(connection_string: str, database: str, container: str) -> None:
     try:
         client = CosmosClient.from_connection_string(connection_string)
         db = client.create_database_if_not_exists(id=database, offer_throughput=400)
+        # Partitioned on /timestamp, which is effectively unique per document: writes spread
+        # evenly and this matches containers created before telemetry was standardized. Cosmos
+        # cannot change an existing container's partition key and create_container_if_not_exists
+        # silently returns the existing one, so switching this path would require operators to
+        # delete and recreate the container. Do not change it.
         _cosmos_container = db.create_container_if_not_exists(
             id=container,
-            partition_key=PartitionKey(path="/engineKey"),
+            partition_key=PartitionKey(path="/timestamp"),
         )
         _cosmos_client = client
     except Exception:  # noqa: BLE001 - telemetry init must never crash startup

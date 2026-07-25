@@ -62,7 +62,10 @@ name (e.g. `rust`), `<ENGINE>` the uppercase engine key (e.g. `RUST`).
 
 - [ ] Writes the standardized 12-field document: `id`, `engineKey`, `timestamp`, `host`, `userAgent`,
       `pattern`, `text`, `replace`, `options` (integer), `durationMs`, `matchCount`, `error`
-- [ ] Database `regex-tester-db`, container `telemetry`, matching the existing partition key
+- [ ] Database `regex-tester-db`, container `telemetry`, partition key **`/timestamp`** (matching the
+      existing backends — never introduce a different key)
+- [ ] If the SDK requires an explicit partition key value on write, it is `timestamp`, matching the
+      container path — a mismatch fails every write silently
 - [ ] **Fire-and-forget** — never awaited on the request path, all errors swallowed
 - [ ] Empty connection string disables telemetry silently
 - [ ] **Proven**: with a syntactically valid but *unreachable* connection string, the app still starts and

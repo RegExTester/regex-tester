@@ -157,7 +157,7 @@ Auto-generated from JSDoc `@openapi` YAML blocks using a custom parser:
 | Runtime | .NET 10.0 | Node.js 22+ |
 | Port | 5000/5001 | 5100 |
 | Regex engine | System.Text.RegularExpressions | JavaScript RegExp |
-| Telemetry | Cosmos DB | Cosmos DB (standardized 12-field document; same `/engineKey` partition key) |
+| Telemetry | Cosmos DB | Cosmos DB (standardized 12-field document; same `/timestamp` partition key) |
 | OpenAPI generation | Built-in ASP.NET OpenApi | Custom JSDoc parser |
 | HTTPS | Enabled (with redirect) | Not enabled (reverse proxy expected) |
 

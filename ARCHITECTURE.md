@@ -126,10 +126,12 @@ malformed fields (400) are real HTTP error statuses.
 
 All three backends write an identical 12-field document (`id`, `engineKey`, `timestamp`, `host`,
 `userAgent`, `pattern`, `text`, `replace`, `options`, `durationMs`, `matchCount`, `error`) to one
-shared Cosmos DB container, `regex-tester-db`/`telemetry`, partitioned on `/engineKey`. Writes are
+shared Cosmos DB container, `regex-tester-db`/`telemetry`, partitioned on `/timestamp`. Writes are
 fire-and-forget on every engine: a Cosmos outage can never affect the response already sent, and an
 empty connection string disables telemetry silently without preventing startup. No client IP is
-collected. See [DEPLOYMENT.md](DEPLOYMENT.md) for the one-time container migration this requires.
+collected. `engineKey` is a plain field on the document, so per-engine queries are cross-partition —
+an intentional trade so the partition key stays unchanged and no container ever needs recreating.
+See [DEPLOYMENT.md](DEPLOYMENT.md).
 
 ## Known deliberate engine divergences
 

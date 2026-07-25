@@ -15,7 +15,11 @@ async function initCosmos(connectionString, database, container) {
   });
   const { container: cont } = await db.containers.createIfNotExists({
     id: container,
-    partitionKey: { paths: ['/engineKey'] },
+    // Partitioned on /timestamp, which is effectively unique per document: writes spread evenly
+    // and this matches containers created before telemetry was standardized. Cosmos cannot change
+    // an existing container's partition key and createIfNotExists silently returns the existing
+    // one, so switching this path would require operators to delete and recreate the container.
+    partitionKey: { paths: ['/timestamp'] },
   });
   cosmosContainer = cont;
 }

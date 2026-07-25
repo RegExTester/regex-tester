@@ -57,7 +57,14 @@ Divergences must be **documented**, not accidental.
 
 ## Telemetry
 
-- One Cosmos database `regex-tester-db`, one container `telemetry`.
+- One Cosmos database `regex-tester-db`, one container `telemetry`, partitioned on **`/timestamp`**.
+  Do not "optimize" this to `/engineKey`: `CreateContainerIfNotExists` **silently returns an existing
+  container and does not change its partition key**, so any partition-key change forces operators to
+  delete and recreate the container and lose all history. Treat it as effectively immutable.
+  `engineKey` is a plain field, so per-engine queries still work (cross-partition).
+- **api-dotnet passes the partition key value explicitly** (`new PartitionKey(item.timestamp)`). It must
+  always match the container path. A mismatch fails every write with `PartitionKeyMismatch` — and because
+  telemetry swallows all errors, it fails completely silently.
 - Standardized 12-field document, identical camelCase on all three: `id`, `engineKey`, `timestamp`,
   `host`, `userAgent`, `pattern`, `text`, `replace`, `options` (integer), `durationMs`, `matchCount`, `error`.
 - **Strictly fire-and-forget.** Never awaited on the request path; every error swallowed. .NET uses
@@ -67,9 +74,6 @@ Divergences must be **documented**, not accidental.
 - An empty connection string disables telemetry silently. A bad or unreachable one is caught at init so
   **no backend ever fails to start**.
 - Do not collect client IPs. `host` is the Host header.
-- `CreateContainerIfNotExists` **silently returns an existing container and does not change its partition
-  key** — changing the partition key requires deleting and recreating the container, which is a breaking
-  operational change. Treat any partition-key change as breaking.
 
 ## Frontend: carried bits
 

@@ -64,7 +64,11 @@ public class TelemetryService : ITelemetryService, IDisposable
         {
             try
             {
-                await CosmosContainer.CreateItemAsync(item, new PartitionKey(item.engineKey), ItemRequestOptions, CancellationToken.None);
+                // The partition key value MUST match the container's partition key path
+                // (/timestamp, see InitCosmos). Passing engineKey here would make every write
+                // fail with PartitionKeyMismatch, and because this catch swallows everything
+                // that failure would be completely silent.
+                await CosmosContainer.CreateItemAsync(item, new PartitionKey(item.timestamp), ItemRequestOptions, CancellationToken.None);
             }
             catch (Exception ex)
             {
@@ -82,7 +86,12 @@ public class TelemetryService : ITelemetryService, IDisposable
         {
             CosmosClient = new CosmosClient(cosmosConnectionString);
             CosmosDatabase = CosmosClient.CreateDatabaseIfNotExistsAsync(database, ThroughputProperties.CreateManualThroughput(400)).Result.Database;
-            CosmosContainer = CosmosDatabase.CreateContainerIfNotExistsAsync(container, "/engineKey").Result.Container;
+            // Partitioned on /timestamp, which is effectively unique per document: writes spread
+            // evenly and, crucially, this matches containers created before telemetry was
+            // standardized. Cosmos cannot change an existing container's partition key and
+            // CreateContainerIfNotExists silently returns the existing one, so switching this
+            // path would require operators to delete and recreate the container. Do not change it.
+            CosmosContainer = CosmosDatabase.CreateContainerIfNotExistsAsync(container, "/timestamp").Result.Container;
         }
         catch (Exception ex)
         {

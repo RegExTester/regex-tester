@@ -198,7 +198,7 @@ FastAPI auto-generates the OpenAPI document from the Pydantic models and route d
 | Port | 5000/5001 | 5100 | 5200 |
 | Regex engine | `System.Text.RegularExpressions` | JavaScript `RegExp` | stdlib `re` |
 | `features.captures` | `"multi"` — `Group.Captures` retains every capture of a repeated group | `"single"` — only the last capture per group is exposed | `"single"` — `Match.groups()` only exposes the last capture per group, so `ShowCaptures` yields a single-element `captures` array |
-| Telemetry | Azure Cosmos DB | Azure Cosmos DB | Azure Cosmos DB — standardized 12-field document, same `/engineKey` partition key, fire-and-forget via FastAPI `BackgroundTasks` (see `telemetry_service.py`) |
+| Telemetry | Azure Cosmos DB | Azure Cosmos DB | Azure Cosmos DB — standardized 12-field document, same `/timestamp` partition key, fire-and-forget via FastAPI `BackgroundTasks` (see `telemetry_service.py`) |
 | OpenAPI generation | Built-in ASP.NET OpenApi | Custom JSDoc parser | Built-in FastAPI/Pydantic generation |
 | Named group syntax | `(?<name>...)` native | `(?<name>...)` native | Translated from `(?<name>...)` to `(?P<name>...)` before compiling |
 

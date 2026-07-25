@@ -107,10 +107,10 @@ Cover, in order:
 2. **Provisioning Azure resources** with concrete `az` commands: resource group, App Service plan, the
    three web apps (correct runtime per app), and the Cosmos DB account, database `regex-tester-db` and
    container `telemetry`.
-   - The Cosmos container **must** be created with partition key `/engineKey`.
-   - Call out prominently that an existing container partitioned on `/timestamp` cannot be altered in
-     place and must be deleted and recreated, and that `CreateContainerIfNotExists` will silently keep the
-     old key otherwise.
+   - The Cosmos container **must** be created with partition key `/timestamp`.
+     *(Amended by [TASK-13](TASK-13-telemetry-partition-key-timestamp.md), which reverted the key from
+     `/engineKey` back to `/timestamp`. Because that matches the key the container has always had, no
+     delete-and-recreate step is needed and `DEPLOYMENT.md` must not present one as routine.)*
 3. **App settings per web app** — a table of every setting each app needs, including
    `COSMOS_CONNECTION_STRING`, `COSMOS_DATABASE`, `COSMOS_CONTAINER`, `ALLOW_CORS`, and
    `ENVIRONMENT=production` for api-python (explain that the code defaults to `development`, so omitting
@@ -172,7 +172,8 @@ Cover, in order:
       `.github/workflows/`, and every secret referenced by those workflows is documented. No invented
       secrets, no omissions.
 - [ ] Every `az` command is syntactically valid and uses this repo's real resource names.
-- [ ] The Cosmos section states the `/engineKey` partition key and the one-time container recreation.
+- [ ] The Cosmos section states the `/timestamp` partition key and that no container recreation is
+      needed (amended by [TASK-13](TASK-13-telemetry-partition-key-timestamp.md)).
 - [ ] `DEPLOYMENT.md` does not claim OIDC is already configured in the committed workflows.
 - [ ] No document contradicts `docs/design/api-contract.md`, `CLAUDE.md`, or the actual workflow files.
 - [ ] Ports are correct throughout: 5000 (.NET), 5100 (Node.js), 5200 (Python), 4000 (Vite).

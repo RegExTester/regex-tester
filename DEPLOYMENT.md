@@ -46,31 +46,25 @@ az webapp create --name regex-tester-api-python --resource-group regex-tester \
 az cosmosdb create --name regex-tester-cosmos --resource-group regex-tester \
   --locations regionName=centralus
 
-# Database and container — 400 RU/s, partition key /engineKey
+# Database and container — 400 RU/s, partition key /timestamp
 az cosmosdb sql database create --account-name regex-tester-cosmos \
   --resource-group regex-tester --name regex-tester-db
 
 az cosmosdb sql container create --account-name regex-tester-cosmos \
   --resource-group regex-tester --database-name regex-tester-db \
-  --name telemetry --partition-key-path /engineKey --throughput 400
+  --name telemetry --partition-key-path /timestamp --throughput 400
 ```
 
-> **Partition key warning.** The telemetry container **must** be created with partition key
-> `/engineKey`. Every backend's Cosmos client calls `CreateContainerIfNotExists` at startup, which
-> **silently returns the existing container as-is if one already exists** — it does not change an
-> existing container's partition key. If a `telemetry` container already exists from before
-> TASK-11 (standardized telemetry) and was partitioned on `/timestamp`, you must **delete and
-> recreate it** with `/engineKey` before deploying; otherwise every backend keeps writing into a
-> `/timestamp`-partitioned container and telemetry silently fragments across two containers.
-
-```bash
-# Only if a pre-existing /timestamp-partitioned container needs replacing:
-az cosmosdb sql container delete --account-name regex-tester-cosmos \
-  --resource-group regex-tester --database-name regex-tester-db --name telemetry --yes
-az cosmosdb sql container create --account-name regex-tester-cosmos \
-  --resource-group regex-tester --database-name regex-tester-db \
-  --name telemetry --partition-key-path /engineKey --throughput 400
-```
+> **Partition key.** The telemetry container is partitioned on `/timestamp`, which is effectively
+> unique per document, so writes spread evenly across logical partitions. All three backends call
+> `CreateContainerIfNotExists` at startup, which **silently returns an existing container as-is** —
+> Cosmos cannot change a container's partition key after creation. `/timestamp` is deliberately the
+> same key the container has always used, so an existing deployment needs **no action**: do not
+> delete or recreate anything.
+>
+> The only exception is a container that was manually recreated on `/engineKey` while that key was
+> briefly specified. If you have one, recreate it on `/timestamp` — note this destroys existing
+> telemetry, which is why the key was reverted.
 
 Retrieve the connection string for the app settings step below:
 

@@ -148,7 +148,7 @@ The document has 12 fields, matching the other two backends exactly: `id` (`uuid
 `engineKey` (`ENGINE_KEY` from `capabilities.py` = `"PYTHON"` — the same constant
 `GET /api/capabilities` uses), `timestamp` (UTC ISO-8601, via `datetime.now(timezone.utc)`),
 `host`, `userAgent`, `pattern`, `text`, `replace`, `options`, `durationMs`, `matchCount`, `error`.
-The container is created (if missing) with partition key `/engineKey` and throughput 400 RU/s.
+The container is created (if missing) with partition key `/timestamp` and throughput 400 RU/s.
 
 ## 8. OpenAPI Generation and Where the Document Is Served
 

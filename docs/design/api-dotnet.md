@@ -110,7 +110,7 @@ body, before the body is parsed or any field is validated.
 - Logs each regex request to Azure Cosmos DB asynchronously
 - Logged fields (12, standardized across all three backends): id, engineKey, timestamp, host,
   userAgent, pattern, text, replace, options, durationMs, matchCount, error
-- Partition key: `/engineKey`
+- Partition key: `/timestamp`
 - Graceful degradation: no-op when connection string is empty
 - Fire-and-forget: failures don't affect API response
 

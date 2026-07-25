@@ -46,7 +46,12 @@ identifier the engine reports from `GET /api/capabilities`: `DOTNET`, `NODEJS`, 
 `engineKey` must be a single hard-coded constant per backend, reused from the capabilities service rather
 than re-declared, so the two can never drift.
 
-### D2 — Partition key becomes `/engineKey`
+### D2 — Partition key becomes `/engineKey` — ⚠️ SUPERSEDED
+
+> **Superseded by [TASK-13](TASK-13-telemetry-partition-key-timestamp.md).** The partition key was
+> reverted to `/timestamp` precisely because the breaking container change described below was judged
+> not worth its cost. The reasoning is preserved here as a record of the original decision; it no
+> longer describes the implemented system. `engineKey` remains a field on every document.
 
 The container is currently partitioned on `/timestamp`. Every document has a distinct timestamp, so every
 document lands in its own logical partition and any per-engine query is an unbounded cross-partition
