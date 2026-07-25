@@ -4,6 +4,13 @@ on:
   push:
     branches: [main]
   pull_request:
+  # Callable by the four deploy workflows so a deployment can depend on a green suite for the exact
+  # commit being deployed. Deliberately a reusable workflow rather than `workflow_run` on the deploy
+  # side: `workflow_run` cannot use `paths` filters, and it checks out the default-branch tip rather
+  # than the commit that was tested unless head_sha is passed explicitly — which would let untested
+  # code deploy. Calling this keeps the test and deploy jobs in one run on one SHA.
+  # This workflow needs no secrets; callers must not pass any.
+  workflow_call:
 
 jobs:
   contract-tests:

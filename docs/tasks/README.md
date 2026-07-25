@@ -17,6 +17,7 @@ Source plan: [docs/plan/2026-07-25-api-contract-and-python-backend.md](../plan/2
 | [TASK-11](TASK-11-standardize-telemetry.md) | Standardize telemetry across all three backends | 09, 10 | Done |
 | [TASK-12](TASK-12-project-documentation.md) | README, ARCHITECTURE and DEPLOYMENT documentation | 11 | Done |
 | [TASK-13](TASK-13-telemetry-partition-key-timestamp.md) | Revert the telemetry partition key to `/timestamp` | 11, 12 | Done |
+| [TASK-14](TASK-14-gate-deploys-on-tests.md) | Gate all deployments on a green test suite | 08, 13 | Done |
 
 ## Execution order
 
@@ -39,7 +40,7 @@ graph LR
   T06 --> T08
   T01 --> T08
   T08 --> T09 --> T10
-  T10 --> T11 --> T12 --> T13
+  T10 --> T11 --> T12 --> T13 --> T14
 ```
 
 **Wave 1** — TASK-01 and TASK-02 (independent, parallel)
@@ -51,11 +52,13 @@ graph LR
 **Wave 7** — TASK-11
 **Wave 8** — TASK-12
 **Wave 9** — TASK-13
+**Wave 10** — TASK-14
 
 TASK-09 and TASK-10 both modify `ui-vuejs/src/components/RegexTester.vue`, so they must run in
 **different waves** even though their concerns are otherwise disjoint. TASK-12 documents the telemetry
 behaviour TASK-11 delivers, so it must run after it. TASK-13 reverses one TASK-11 decision and must
-edit the documents TASK-12 wrote, so it runs after both.
+edit the documents TASK-12 wrote, so it runs after both. TASK-14 rewires the CI/CD workflows TASK-08
+created and must gate on the test suite as it stands after TASK-13, so it runs last.
 
 ## File ownership
 

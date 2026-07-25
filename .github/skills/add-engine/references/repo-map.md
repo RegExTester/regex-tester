@@ -85,6 +85,8 @@ Do **not** pass `--root` — it breaks module resolution and every suite fails t
 "no tests", which looks like a real regression but is not.
 
 `.github/workflows/contract-tests.yml` runs this against all three backends on every push and PR.
+It is also a **reusable workflow** (`workflow_call`) that every deploy workflow calls as a gating
+`test` job — nothing deploys unless all engines are green for that commit. Preserve that wiring.
 
 ## Regenerating the OpenAPI snapshots
 

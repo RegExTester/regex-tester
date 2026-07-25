@@ -91,6 +91,11 @@ name (e.g. `rust`), `<ENGINE>` the uppercase engine key (e.g. `RUST`).
 ## CI/CD
 
 - [ ] `.github/workflows/deploy-api-<engine>.yml` added, path-filtered + `workflow_dispatch`
+- [ ] Deploy job is **gated on the test suite** — a `test` job with
+      `uses: ./.github/workflows/contract-tests.yml` and `needs: test` on `build-and-deploy`,
+      matching the four existing deploy workflows. Never pass `secrets: inherit` to it.
+- [ ] The new engine is added to the `contract-tests.yml` matrix, so it gates every *other*
+      project's deploys too
 - [ ] Uses `azure/login@v2` with `secrets.AZURE_CREDENTIALS` and `azure/webapps-deploy@v3`
 - [ ] **No new secrets invented** — only `AZURE_CREDENTIALS`, `AZURE_RESOURCE_GROUP`, `PAGES_DEPLOY_TOKEN` exist
 - [ ] Added to the `contract-tests.yml` matrix with the right SDK setup, start command and port

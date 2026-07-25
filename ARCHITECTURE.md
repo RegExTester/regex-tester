@@ -71,9 +71,11 @@ All three backends implement one canonical OpenAPI 3.1.1 document,
 narrative form in [docs/design/api-contract.md](docs/design/api-contract.md). A single
 language-agnostic conformance suite ([tests/contract/](tests/contract/), vitest + ajv) validates
 every response against that schema plus the behavioural rules in the contract doc, run once per
-backend via the `BASE_URL` environment variable. A new backend — the contract doc's own example is
-`api-rust` — is contract-compliant the moment this suite passes unmodified against it; no frontend
-change is required. See
+backend via the `BASE_URL` environment variable. That suite is also the deployment gate: every
+deploy workflow calls it as a reusable workflow and will not ship unless all three engines are green
+for the commit being deployed (see [DEPLOYMENT.md](DEPLOYMENT.md#7-ci)). A new backend — the contract
+doc's own example is `api-rust` — is contract-compliant the moment this suite passes unmodified
+against it; no frontend change is required. See
 [docs/design/api-contract.md#6-adding-a-new-backend-eg-rust--checklist](docs/design/api-contract.md#6-adding-a-new-backend-eg-rust--checklist)
 for the exact checklist.
 

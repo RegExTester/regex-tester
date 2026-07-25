@@ -212,6 +212,41 @@ workflow file (e.g. `deploy-api-python.yml` only triggers on changes under `api-
 itself), so editing one backend never redeploys the other two, and editing the frontend never
 redeploys any backend. Every deploy workflow also supports manual `workflow_dispatch`.
 
+### Deploys are gated on a green test suite
+
+**No deploy runs unless the contract suite passes for the exact commit being deployed.** Every
+deploy workflow starts with a `test` job that calls `contract-tests.yml` as a reusable workflow, and
+its `build-and-deploy` job declares `needs: test`:
+
+```yaml
+jobs:
+  test:
+    uses: ./.github/workflows/contract-tests.yml
+
+  build-and-deploy:
+    needs: test
+    ...
+```
+
+Consequences worth knowing:
+
+- **All three engines must be green, for every deploy — including the frontend.** The backends
+  implement one shared contract and the frontend talks to all three, so a red `api-python` blocks a
+  `ui-vuejs` deploy as well. This is intentional.
+- **`workflow_dispatch` is gated too.** There is deliberately no `skip_tests` input; a manual deploy
+  runs the same suite. If you genuinely must ship past a red suite, fix or quarantine the test in a
+  commit — don't add a bypass.
+- **The suite runs twice on a deploy push**: once from `contract-tests.yml`'s own `push` trigger
+  (which keeps the README status badge meaningful) and once inside the deploy workflow. Accepted
+  trade; the wasted minutes are cheaper than shipping untested code.
+- **No secrets are passed to the test job.** The suite needs none, and the Azure credentials and
+  Pages token must not be exposed to it. Do not add `secrets: inherit`.
+- A failed gate leaves the previous deployment untouched — nothing is uploaded to Azure or Pages.
+
+This gate covers workflow-triggered deploys. It does **not** stop someone merging a red commit into
+`main` in the first place — for that, enable branch protection on `main` in the repository settings
+with *Contract tests* as a required status check. The two are complements, not substitutes.
+
 ## 8. Verification after deploy
 
 ```bash

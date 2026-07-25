@@ -13,7 +13,14 @@ env:
   NODE_VERSION: '22.x'
 
 jobs:
+  # Gate: the full three-engine contract suite must pass for this exact commit before anything is
+  # deployed. No secrets are passed — the suite needs none, and the Azure credentials must not be
+  # exposed to it.
+  test:
+    uses: ./.github/workflows/contract-tests.yml
+
   build-and-deploy:
+    needs: test
     runs-on: ubuntu-latest
     defaults:
       run:
