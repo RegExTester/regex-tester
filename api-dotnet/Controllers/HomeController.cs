@@ -9,7 +9,7 @@ namespace RegExTester.Api.DotNet.Controllers
     [Produces("application/json")]
     public class HomeController : Controller
     {
-        /// <summary>Redirect to the Angular frontend.</summary>
+        /// <summary>Redirect to the frontend.</summary>
         /// <returns>HTTP 302 redirect to <c>https://regextester.github.io/</c>.</returns>
         [HttpGet]
         [ProducesResponseType(302)]

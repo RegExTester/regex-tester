@@ -15,7 +15,7 @@
         "tags": [
           "Home"
         ],
-        "summary": "Redirect to the Angular frontend.",
+        "summary": "Redirect to the frontend.",
         "responses": {
           "302": {
             "description": "HTTP 302 redirect to `https://regextester.github.io/`.",
@@ -49,7 +49,7 @@
           "RegEx"
         ],
         "summary": "Run a regular expression and return all matches.",
-        "description": "Applies the provided regex pattern to the input text using the specified option flags.\r\nAll string fields are Base64Url-encoded by the Angular frontend before submission but\r\nthe API itself accepts plain UTF-8 JSON strings.\r\n\r\n**Timeout:** The regex engine enforces a 15-second match timeout; the HTTP request\r\nhas a 5-second middleware timeout. If either is exceeded an error message is returned\r\nin the `error` field rather than throwing an HTTP error.",
+        "description": "Applies the provided regex pattern to the input text using the specified option flags.\r\nAll string fields are Base64Url-encoded by the frontend before submission but\r\nthe API itself accepts plain UTF-8 JSON strings.\r\n\r\n**Timeout:** The regex engine enforces a 15-second match timeout; the HTTP request\r\nhas a 5-second middleware timeout. If either is exceeded an error message is returned\r\nin the `error` field rather than throwing an HTTP error.",
         "requestBody": {
           "description": "Request cancellation token.",
           "content": {

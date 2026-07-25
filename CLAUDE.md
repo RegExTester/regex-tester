@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-RegEx Tester is a mono-repo containing two frontend SPAs and two backend APIs that provide real-time regex testing with match highlighting, group/capture extraction, and URL-based sharing via Base64Url encoding.
+RegEx Tester is a mono-repo containing one frontend SPA and two backend APIs that provide real-time regex testing with match highlighting, group/capture extraction, and URL-based sharing via Base64Url encoding.
 
 ### Projects
 
@@ -12,10 +12,9 @@ RegEx Tester is a mono-repo containing two frontend SPAs and two backend APIs th
 |---------|-----------|-----------|
 | **api-dotnet** | .NET 10.0 Web API | `api-dotnet/` |
 | **api-nodejs** | Node.js 22+ / Express 5 | `api-nodejs/` |
-| **ui-angular** | Angular 21.1 SPA | `ui-angular/` |
 | **ui-vuejs** | Vue 3 / Vite 6 SPA | `ui-vuejs/` |
 
-The frontends are interchangeable — both call the same API contract (`POST /api/regex`). The Vue.js frontend supports switching between the .NET and Node.js backends at runtime via an engine dropdown.
+The Vue.js frontend supports switching between the .NET and Node.js backends at runtime via an engine dropdown.
 
 ## Commands
 
@@ -33,17 +32,6 @@ dotnet publish -c Release      # Production publish
 npm install                    # Install dependencies
 npm start                      # Server at http://localhost:5100
 npm run dev                    # Dev server with --watch
-```
-
-### ui-angular
-
-```bash
-npm start                      # Dev server at http://localhost:4200
-npm run build                  # Production build to dist/
-npm run build-prod             # Optimized production build
-npm run test                   # Karma unit tests
-npm run lint                   # TSLint validation
-npm run deploy                 # Deploy to GitHub Pages
 ```
 
 ### ui-vuejs
@@ -94,13 +82,6 @@ npm run preview                # Preview production build
 - `src/middleware/requestTimeout.js` — 5s HTTP timeout
 - `src/openapi.js` — auto-generates OpenAPI spec from `@openapi` JSDoc annotations
 - `src/schemas.js` — OpenAPI component schemas via JSDoc
-
-### ui-angular Key Files
-
-- `src/app/regex/regex.component.ts` — main component: form, API calls, debouncing, URL sync
-- `src/app/regex/regex.config.ts` — API endpoints and regex option definitions
-- `src/utils/encodeUriHelper.ts` — Base64Url encode/decode (RFC7515)
-- `src/environments/` — `environment.ts` (localhost:5000), `environment.prod.ts` (Azure)
 
 ### ui-vuejs Key Files
 

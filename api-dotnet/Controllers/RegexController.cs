@@ -25,7 +25,7 @@ namespace RegExTester.Api.DotNet.Controllers
         /// <summary>Run a regular expression and return all matches.</summary>
         /// <remarks>
         /// Applies the provided regex pattern to the input text using the specified option flags.
-        /// All string fields are Base64Url-encoded by the Angular frontend before submission but
+        /// All string fields are Base64Url-encoded by the frontend before submission but
         /// the API itself accepts plain UTF-8 JSON strings.
         ///
         /// **Timeout:** The regex engine enforces a 15-second match timeout; the HTTP request

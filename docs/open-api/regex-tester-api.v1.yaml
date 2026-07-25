@@ -1,0 +1,568 @@
+openapi: 3.1.1
+info:
+  title: RegEx Tester API
+  version: "1.0.0"
+  description: |
+    Canonical, engine-agnostic contract for every RegEx Tester backend (.NET, Node.js, Python,
+    and future engines such as Rust). This document is the single source of truth: every backend
+    MUST implement these paths and schemas exactly, and MUST serve this document (or an identical
+    copy) at `/openapi/v1.json`.
+
+    This spec intentionally does not mention any specific engine, language, or framework in its
+    paths or schemas — only in illustrative example values (e.g. `engineKey: "DOTNET"`).
+
+    See `docs/design/api-contract.md` for the narrative companion: the option flag registry,
+    behavioural MUST rules, limits, known engine divergences, and the checklist for adding a new
+    backend.
+  license:
+    name: MIT
+    url: https://github.com/regextester/regex-tester/blob/main/LICENSE
+externalDocs:
+  description: Narrative API contract (flag registry, behavioural rules, adding a new backend)
+  url: ../design/api-contract.md
+servers:
+  - url: "{baseUrl}"
+    description: Base URL of a specific engine deployment. Every backend serves these paths at its own base URL (e.g. `http://localhost:5000` for api-dotnet, `http://localhost:5100` for api-nodejs, `http://localhost:5200` for api-python).
+    variables:
+      baseUrl:
+        default: http://localhost:5000
+        description: Root URL of the deployed engine instance.
+security: []
+
+paths:
+  /:
+    get:
+      operationId: getRoot
+      summary: Redirect to the frontend
+      description: Always redirects to the hosted frontend application. Carries no response body.
+      tags:
+        - Home
+      responses:
+        "302":
+          description: Redirect to the frontend application.
+          headers:
+            Location:
+              description: The URL of the hosted frontend.
+              schema:
+                type: string
+                format: uri
+              example: https://regextester.github.io/
+
+  /api/version:
+    get:
+      operationId: getVersion
+      summary: Report engine and runtime version information
+      description: |
+        Returns identifying information about the running engine and the contract version it
+        implements. Intended for diagnostics and support; not used by the frontend to drive
+        behaviour (use `/api/capabilities` for that).
+      tags:
+        - Version
+      responses:
+        "200":
+          description: Version information for the running backend.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VersionResult"
+
+  /api/capabilities:
+    get:
+      operationId: getCapabilities
+      summary: Report the options, limits, and features this engine supports
+      description: |
+        Returns the set of option flags this engine understands (with descriptions and whether
+        each is actually supported vs. silently ignored), the request size/timeout limits it
+        enforces, and which optional features it implements. The frontend uses this to render
+        option checkboxes dynamically rather than hard-coding an option list per engine.
+
+        Responses MUST be cacheable for 24 hours; capabilities do not change between requests for
+        a given deployed engine version.
+      tags:
+        - Capabilities
+      responses:
+        "200":
+          description: Capability description for the running backend.
+          headers:
+            Cache-Control:
+              description: Capabilities are static for a given deployment; cacheable for 24 hours.
+              schema:
+                type: string
+              example: public, max-age=86400
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Capabilities"
+
+  /api/regex:
+    post:
+      operationId: postRegex
+      summary: Run a regular expression against input text
+      description: |
+        Evaluates `pattern` against `text` and returns every match, its named/numbered groups, and
+        (optionally) individual captures. If `replace` is supplied, also returns the result of a
+        find-and-replace operation.
+
+        Regex compile errors and the 15-second regex evaluation timeout are reported as HTTP 200
+        with `error` populated — they are not HTTP error responses. Only request validation
+        failures (e.g. a field exceeding its `maxLength`) produce HTTP 400.
+      tags:
+        - RegEx
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Input"
+            example:
+              pattern: "(?<word>\\w+)"
+              text: "hello world"
+              replace: null
+              options: 0
+      responses:
+        "200":
+          description: |
+            The match result. Always returned with HTTP 200, even when `pattern` is invalid or the
+            match times out — in those cases `error` is populated and `matches` is `[]`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RegexResult"
+        "400":
+          description: Request validation failed (e.g. a field exceeded its maximum length).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+
+components:
+  schemas:
+    Input:
+      type: object
+      description: Request body for `POST /api/regex`. No property is required; a missing property is equivalent to `null` (or `0` for `options`).
+      properties:
+        pattern:
+          type: ["string", "null"]
+          maxLength: 512
+          description: The regular expression pattern to evaluate.
+        text:
+          type: ["string", "null"]
+          maxLength: 1024
+          description: The input text to search.
+        replace:
+          type: ["string", "null"]
+          maxLength: 1024
+          description: |
+            Optional replacement string. When supplied, the response `replace` field contains the
+            result of applying it to `text` using `pattern`.
+        options:
+          type: integer
+          format: int32
+          default: 0
+          description: |
+            Bitwise combination of option flags (see the flag registry in
+            `docs/design/api-contract.md`). Unsupported bits MUST be ignored silently by the
+            engine, never rejected. The custom `ShowCaptures` flag (32768) is stripped before the
+            remaining bits reach the underlying regex engine.
+      example:
+        pattern: "(?<word>\\w+)"
+        text: "hello world"
+        replace: null
+        options: 0
+
+    RegexResult:
+      type: object
+      description: Response body for `POST /api/regex` on success (HTTP 200).
+      required:
+        - error
+        - replace
+        - matches
+      properties:
+        error:
+          type: ["string", "null"]
+          description: Error message when the pattern is invalid or the match times out; `null` on success.
+        replace:
+          type: ["string", "null"]
+          description: Result of applying `replace` to `text`; `null` when no `replace` was supplied.
+        matches:
+          type: array
+          description: All matches found in the input text. MUST be `[]` (never `null`) when there are no matches, including on error or timeout.
+          items:
+            $ref: "#/components/schemas/MatchResult"
+      example:
+        error: null
+        replace: null
+        matches:
+          - name: "0"
+            index: 0
+            length: 5
+            value: "hello"
+            groups:
+              - name: "0"
+                index: 0
+                length: 5
+                value: "hello"
+                captures: null
+              - name: "word"
+                index: 0
+                length: 5
+                value: "hello"
+                captures: null
+            captures: null
+
+    MatchResult:
+      type: object
+      description: A single regex match within the input text.
+      required:
+        - name
+        - index
+        - length
+        - value
+        - groups
+        - captures
+      properties:
+        name:
+          type: string
+          description: Match name (always `"0"` for the whole-match).
+        index:
+          type: integer
+          format: int32
+          description: Zero-based character offset where the match starts.
+        length:
+          type: integer
+          format: int32
+          description: Length of the matched substring in characters.
+        value:
+          type: string
+          description: The matched substring.
+        groups:
+          type: array
+          description: Named and numbered capturing groups within this match. Never `null`.
+          items:
+            $ref: "#/components/schemas/GroupResult"
+        captures:
+          type: ["array", "null"]
+          description: All captures of the whole match. `null` unless the `ShowCaptures` flag (32768) is set in `options`.
+          items:
+            $ref: "#/components/schemas/CaptureResult"
+      example:
+        name: "0"
+        index: 0
+        length: 5
+        value: "hello"
+        groups:
+          - name: "0"
+            index: 0
+            length: 5
+            value: "hello"
+            captures: null
+        captures: null
+
+    GroupResult:
+      type: object
+      description: A single capturing group within a match.
+      required:
+        - name
+        - index
+        - length
+        - value
+        - captures
+      properties:
+        name:
+          type: string
+          description: Group name or number (e.g. `"1"`, `"word"`).
+        index:
+          type: integer
+          format: int32
+          description: Zero-based character offset where the group match starts.
+        length:
+          type: integer
+          format: int32
+          description: Length of the group match in characters.
+        value:
+          type: string
+          description: The substring matched by this group.
+        captures:
+          type: ["array", "null"]
+          description: All individual captures of this group. `null` unless the `ShowCaptures` flag (32768) is set in `options`.
+          items:
+            $ref: "#/components/schemas/CaptureResult"
+      example:
+        name: "word"
+        index: 0
+        length: 5
+        value: "hello"
+        captures: null
+
+    CaptureResult:
+      type: object
+      description: An individual capture produced by a group that matches multiple times.
+      required:
+        - index
+        - length
+        - value
+      properties:
+        index:
+          type: integer
+          format: int32
+          description: Zero-based character offset where this capture starts.
+        length:
+          type: integer
+          format: int32
+          description: Length of this capture in characters.
+        value:
+          type: string
+          description: The captured substring.
+      example:
+        index: 6
+        length: 5
+        value: "world"
+
+    VersionResult:
+      type: object
+      description: Response body for `GET /api/version`.
+      required:
+        - engineKey
+        - engineName
+        - contractVersion
+        - os
+        - framework
+      properties:
+        engineKey:
+          type: string
+          description: Short, stable, uppercase identifier for the engine (e.g. `DOTNET`, `NODEJS`, `PYTHON`).
+          example: DOTNET
+        engineName:
+          type: string
+          description: Human-readable engine name.
+          example: ".Net"
+        contractVersion:
+          type: string
+          description: The version of this contract the engine implements.
+          example: "1.0"
+        os:
+          type: string
+          description: Operating system description of the running host.
+        framework:
+          type: string
+          description: Runtime/framework version description (e.g. the .NET or Node.js version).
+        osDescription:
+          type: string
+          deprecated: true
+          description: |
+            Deprecated alias for `os`. Retained by api-nodejs for one release for backward
+            compatibility; new backends MUST NOT emit this field.
+        frameworkDescription:
+          type: string
+          deprecated: true
+          description: |
+            Deprecated alias for `framework`. Retained by api-nodejs for one release for backward
+            compatibility; new backends MUST NOT emit this field.
+      example:
+        engineKey: DOTNET
+        engineName: ".Net"
+        contractVersion: "1.0"
+        os: "Microsoft Windows 10.0.22631"
+        framework: ".NET 10.0.0"
+
+    Capabilities:
+      type: object
+      description: Response body for `GET /api/capabilities`.
+      required:
+        - engineKey
+        - engineName
+        - contractVersion
+        - defaultOptions
+        - limits
+        - features
+        - options
+      properties:
+        engineKey:
+          type: string
+          description: Short, stable, uppercase identifier for the engine (e.g. `DOTNET`, `NODEJS`, `PYTHON`).
+        engineName:
+          type: string
+          description: Human-readable engine name.
+        contractVersion:
+          type: string
+          description: The version of this contract the engine implements.
+        defaultOptions:
+          type: integer
+          format: int32
+          description: The bitmask the frontend should pre-select for this engine when no shared URL state is present.
+        limits:
+          $ref: "#/components/schemas/Limits"
+        features:
+          $ref: "#/components/schemas/Features"
+        options:
+          type: array
+          description: Every option flag known to the contract, annotated with whether this engine actually supports it.
+          items:
+            $ref: "#/components/schemas/CapabilityOption"
+      example:
+        engineKey: PYTHON
+        engineName: Python
+        contractVersion: "1.0"
+        defaultOptions: 3
+        limits:
+          patternMaxLength: 512
+          textMaxLength: 1024
+          replaceMaxLength: 1024
+          regexTimeoutMs: 15000
+          requestTimeoutMs: 5000
+        features:
+          replace: true
+          namedGroups: true
+          captures: single
+        options:
+          - value: 1
+            name: IgnoreCase
+            flag: IGNORECASE
+            supported: true
+            description: Case-insensitive matching.
+          - value: 4
+            name: ExplicitCapture
+            flag: null
+            supported: false
+            description: Only explicitly named or numbered groups are captured. Not supported by this engine; the bit is ignored.
+
+    Limits:
+      type: object
+      description: Request size and timeout limits enforced by this engine.
+      required:
+        - patternMaxLength
+        - textMaxLength
+        - replaceMaxLength
+        - regexTimeoutMs
+        - requestTimeoutMs
+      properties:
+        patternMaxLength:
+          type: integer
+          format: int32
+          description: Maximum length, in characters, accepted for `pattern`.
+        textMaxLength:
+          type: integer
+          format: int32
+          description: Maximum length, in characters, accepted for `text`.
+        replaceMaxLength:
+          type: integer
+          format: int32
+          description: Maximum length, in characters, accepted for `replace`.
+        regexTimeoutMs:
+          type: integer
+          format: int32
+          description: Maximum time, in milliseconds, allowed for regex evaluation before it is aborted and reported as a timeout error.
+        requestTimeoutMs:
+          type: integer
+          format: int32
+          description: Maximum time, in milliseconds, allowed for the whole HTTP request before it is aborted and reported as a timeout error.
+      example:
+        patternMaxLength: 512
+        textMaxLength: 1024
+        replaceMaxLength: 1024
+        regexTimeoutMs: 15000
+        requestTimeoutMs: 5000
+
+    Features:
+      type: object
+      description: Optional capabilities this engine implements.
+      required:
+        - replace
+        - namedGroups
+        - captures
+      properties:
+        replace:
+          type: boolean
+          description: Whether the `replace` request field is honoured.
+        namedGroups:
+          type: boolean
+          description: Whether named capture groups are supported and reported by name.
+        captures:
+          type: string
+          enum: [none, single, multi]
+          description: |
+            The level of per-group capture support when `ShowCaptures` is set:
+            `none` (captures are never reported), `single` (only the last capture per
+            group is reported, as a one-element array), or `multi` (every capture of a
+            repeated group is reported).
+      example:
+        replace: true
+        namedGroups: true
+        captures: single
+
+    CapabilityOption:
+      type: object
+      description: Describes one option flag and whether the running engine supports it.
+      required:
+        - value
+        - name
+        - flag
+        - supported
+        - description
+      properties:
+        value:
+          type: integer
+          format: int32
+          description: The bitmask value of this flag (see the flag registry in `docs/design/api-contract.md`).
+        name:
+          type: string
+          description: The canonical flag name (e.g. `IgnoreCase`).
+        flag:
+          type: ["string", "null"]
+          description: The engine-native flag/name this bit maps to (e.g. `i`, `IGNORECASE`); `null` if this engine has no native equivalent.
+        supported:
+          type: boolean
+          description: Whether this engine actually honours the flag. Unsupported flags are still listed so the frontend can render them as disabled; setting an unsupported bit is silently ignored, never an error.
+        description:
+          type: string
+          description: Human-readable description of the flag's behaviour.
+      example:
+        value: 1
+        name: IgnoreCase
+        flag: "i"
+        supported: true
+        description: Case-insensitive matching.
+
+    ProblemDetails:
+      type: object
+      description: RFC 9457 problem details returned for request validation failures (HTTP 400).
+      required:
+        - type
+        - title
+        - status
+        - errors
+      properties:
+        type:
+          type: string
+          description: A URI reference identifying the problem type.
+        title:
+          type: string
+          description: A short, human-readable summary of the problem.
+        status:
+          type: integer
+          format: int32
+          description: The HTTP status code.
+        errors:
+          type: object
+          description: Validation errors keyed by field name.
+          additionalProperties:
+            type: array
+            items:
+              type: string
+      example:
+        type: "https://tools.ietf.org/html/rfc9110#section-15.5.1"
+        title: "One or more validation errors occurred."
+        status: 400
+        errors:
+          pattern:
+            - "The field pattern must be a string with a maximum length of 512."
+
+tags:
+  - name: Home
+    description: Frontend redirect.
+  - name: Version
+    description: Engine and runtime version information.
+  - name: Capabilities
+    description: Engine capability discovery.
+  - name: RegEx
+    description: Regex evaluation.

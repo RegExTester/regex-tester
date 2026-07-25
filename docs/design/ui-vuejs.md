@@ -116,8 +116,6 @@ fetch(apiConfig().REGEX, {
 
 ## UI Layout (Bootstrap Grid)
 
-Same layout as ui-angular:
-
 ```
 ┌──────────────────────────────────────────────┐
 │ Header: Title | Engine dropdown ▾ | Status   │
@@ -141,7 +139,7 @@ The engine dropdown is a functional Bootstrap 5 dropdown (`data-bs-toggle="dropd
 
 ## Match Highlighting
 
-Same algorithm as ui-angular: iterates matches in **reverse order**, inserts colored `<span>` elements with 5 cycling CSS classes, rendered via `v-html`.
+Iterates matches in **reverse order**, inserts colored `<span>` elements with 5 cycling CSS classes, rendered via `v-html`.
 
 ## Data Flow
 
@@ -151,17 +149,9 @@ User Input → Debounce (800ms) → Validation → Base64Url Encode
   → Parse Response → Build Highlight HTML → Render
 ```
 
-## Differences from ui-angular
+## History
 
-| Aspect | ui-angular | ui-vuejs |
-|--------|-----------|---------|
-| Framework | Angular 21.1 | Vue 3.5 |
-| Language | TypeScript | JavaScript |
-| Build | webpack (Angular CLI) | Vite |
-| HTTP | HttpClient/RxJS | Fetch/Promises |
-| Engine support | .NET only (dropdown disabled) | .NET + Node.js (runtime switching) |
-| Env config | `environments/*.ts` (file replacement) | `.env` files (Vite) |
-| Bundle size | ~500KB+ | ~200KB |
+ui-vuejs replaces ui-angular, the original Angular 21.1 SPA, which has been retired.
 
 ## Build & Deployment
 
