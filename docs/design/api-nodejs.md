@@ -20,10 +20,11 @@ api-nodejs/
 │   ├── openapi.js                  # OpenAPI doc generator (parses @openapi JSDoc)
 │   ├── schemas.js                  # Component schemas via @openapi JSDoc
 │   ├── controllers/
-│   │   ├── homeController.js       # GET / (redirect), GET /api/version
+│   │   ├── homeController.js       # GET / (redirect), GET /api/version, GET /api/capabilities
 │   │   └── regexController.js      # POST /api/regex
 │   ├── services/
-│   │   └── regexProcessor.js       # Core JS regex engine
+│   │   ├── regexProcessor.js       # Core JS regex engine
+│   │   └── capabilities.js         # GET /api/capabilities option registry and limits
 │   └── middleware/
 │       └── requestTimeout.js       # HTTP timeout middleware
 ├── package.json
@@ -38,16 +39,30 @@ Same contract as api-dotnet. See [api-dotnet design doc](api-dotnet.md) for full
 302 redirect to `https://regextester.github.io/`.
 
 ### GET /api/version
-Returns OS and Node.js version info (cached 24h in-memory).
+Returns engine identity and runtime version info (cached 24h in-memory).
 ```json
 {
+  "engineKey": "NODEJS",
+  "engineName": "Node.js",
+  "contractVersion": "1.0",
+  "os": "Windows_NT 10.0.26200 x64",
+  "framework": "Node.js v22.0.0",
   "osDescription": "Windows_NT 10.0.26200 x64",
   "frameworkDescription": "Node.js v22.0.0"
 }
 ```
+`osDescription`/`frameworkDescription` are deprecated aliases for `os`/`framework`, retained for
+one release for backward compatibility.
+
+### GET /api/capabilities
+Reports limits, features, and the full option flag registry (cached 24h). `features.captures` is
+`"single"` — the JS `RegExp`/`String.matchAll` API only exposes the last capture per group.
 
 ### POST /api/regex
-Executes JavaScript regex. Same request/response schema as .NET API.
+Executes JavaScript regex. Same request/response schema as the other backends. `matches` is
+always `[]` (never `null`), including on error, and all fields are always emitted (no
+null-omission). An empty or `null` `pattern` returns
+`{ "error": null, "replace": null, "matches": [] }`.
 
 ### GET /openapi/v1.json
 Raw OpenAPI 3.1.1 JSON document.
@@ -58,9 +73,13 @@ Swagger UI interactive API explorer.
 ## Core Service: RegexProcessor
 
 - Static class with `match(pattern, text, replace, options)` method
+- An empty/`null` `pattern` short-circuits to `{ error: null, replace: null, matches: [] }`
 - Maps bitwise option flags to JavaScript RegExp flags:
   - IgnoreCase (1) → `i`, Multiline (2) → `m`, Singleline (16) → `s` (dotAll)
-  - Always applies `g` (global) and `d` (indices) flags
+  - **Always** applies `g` (global) and `d` (indices) flags internally, regardless of the
+    `Global` (4096) / `HasIndices` (2048) option bits — so every non-overlapping match is
+    returned unconditionally; those two bits remain in `/api/capabilities` for display purposes
+    only
 - `IgnorePatternWhitespace` (32): strips unescaped whitespace and `#` comments from pattern
 - Strips `ShowCaptures` (32768) before creating RegExp
 - Uses `String.matchAll()` iterator with deadline-based timeout (15 seconds)
@@ -68,21 +87,27 @@ Swagger UI interactive API explorer.
 - Replace uses a fresh RegExp instance (matchAll exhausts the iterator)
 - All errors caught and returned in `error` field
 
-### Regex Options — .NET to JS Mapping
+### Regex Options — contract flags to JS mapping
 
-| .NET Flag | Value | JS Equivalent | Notes |
-|-----------|-------|--------------|-------|
-| IgnoreCase | 1 | `i` flag | Supported |
-| Multiline | 2 | `m` flag | Supported |
-| ExplicitCapture | 4 | — | No-op (JS captures all groups) |
-| Compiled | 8 | — | No-op (V8 JIT compiles) |
-| Singleline | 16 | `s` flag | Supported (dotAll) |
-| IgnorePatternWhitespace | 32 | custom | Strips whitespace/comments |
-| RightToLeft | 64 | — | No-op |
-| ECMAScript | 256 | — | No-op (default in JS) |
-| CultureInvariant | 512 | — | No-op |
-| NonBacktracking | 1024 | — | No-op |
-| ShowCaptures | 32768 | custom | Populates captures arrays |
+| Value | Name | JS Equivalent | Notes |
+|-------|------|--------------|-------|
+| 1 | IgnoreCase | `i` flag | Supported |
+| 2 | Multiline | `m` flag | Supported |
+| 4 | ExplicitCapture | — | No-op (JS captures all groups) |
+| 8 | Compiled | — | No-op (V8 JIT compiles) |
+| 16 | Singleline | `s` flag | Supported (dotAll) |
+| 32 | IgnorePatternWhitespace | custom | Strips whitespace/comments |
+| 64 | RightToLeft | — | No-op |
+| 256 | ECMAScript | — | No-op (default in JS) |
+| 512 | CultureInvariant | — | No-op |
+| 1024 | NonBacktracking | — | No-op |
+| 2048 | HasIndices | `d` flag | Always applied internally; bit is display-only |
+| 4096 | Global | `g` flag | Always applied internally; bit is display-only |
+| 8192 | Unicode | `u` flag | Supported |
+| 16384 | UnicodeSets | `v` flag | Supported |
+| 32768 | ShowCaptures | custom | Populates capture arrays |
+| 65536 | Sticky | `y` flag | Supported |
+| 131072 | Ascii | — | No-op |
 
 ## Request Timeout
 
@@ -95,15 +120,21 @@ Swagger UI interactive API explorer.
 - pattern: max 512 characters
 - text: max 1024 characters
 - replace: max 1024 characters
-- Returns HTTP 400 with ProblemDetails-style response on validation failure
+- Returns HTTP 400 with an RFC 9457 `ProblemDetails` body (`errors: { field: string[] }`) on
+  validation failure
+- A raw request body larger than `maxRequestBodyBytes` (8192 bytes, enforced by the
+  `express.json({ limit })` option) returns HTTP 413 with a `ProblemDetails` JSON body, before the
+  body is parsed or any field is validated
 
 ## CORS Configuration
 
-| Environment | Origins |
-|-------------|---------|
-| `NODE_ENV=development` | `*` (all origins) |
-| Default | `http://localhost:5173`, `https://regextester.github.io` |
-| Custom | `ALLOW_CORS` env var (comma-separated) |
+| Origin | Allowed when |
+|--------|-------------|
+| `https://regextester.github.io` | Always |
+| `ALLOW_CORS` env var (comma-separated) | Always |
+| `http(s)://localhost[:port]` | Reflected (never a wildcard) in every environment |
+
+No environment ever returns `Access-Control-Allow-Origin: *`.
 
 ## OpenAPI Documentation
 
@@ -118,7 +149,7 @@ Auto-generated from JSDoc `@openapi` YAML blocks using a custom parser:
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `PORT` | 5100 | HTTP listen port |
-| `NODE_ENV` | — | `'development'` enables wildcard CORS |
+| `NODE_ENV` | — | Standard Express environment flag; does not control CORS (see CORS Configuration above) |
 | `ALLOW_CORS` | — | Comma-separated allowed origins |
 
 ## Key Differences from api-dotnet

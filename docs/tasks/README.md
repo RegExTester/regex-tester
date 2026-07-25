@@ -4,14 +4,14 @@ Source plan: [docs/plan/2026-07-25-api-contract-and-python-backend.md](../plan/2
 
 | Task | Title | Depends on | Status |
 |---|---|---|---|
-| [TASK-01](TASK-01-retire-ui-angular.md) | Retire all `ui-angular` references | — | Not started |
-| [TASK-02](TASK-02-canonical-api-contract.md) | Define the canonical v1 API contract | — | Not started |
-| [TASK-03](TASK-03-api-python.md) | New backend: `api-python` (FastAPI) | 02 | Not started |
-| [TASK-04](TASK-04-normalize-api-dotnet.md) | Normalize `api-dotnet` to the v1 contract | 02 | Not started |
-| [TASK-05](TASK-05-normalize-api-nodejs.md) | Normalize `api-nodejs` to the v1 contract | 02 | Not started |
-| [TASK-06](TASK-06-conformance-test-suite.md) | Cross-backend conformance test suite | 02 | Not started |
-| [TASK-07](TASK-07-frontend-capability-driven-engines.md) | Frontend: capability-driven engines + Python | 02, 03, 04, 05 | Not started |
-| [TASK-08](TASK-08-cicd-and-docs.md) | CI/CD workflows and documentation | 01, 03–07 | Not started |
+| [TASK-01](TASK-01-retire-ui-angular.md) | Retire all `ui-angular` references | — | Done |
+| [TASK-02](TASK-02-canonical-api-contract.md) | Define the canonical v1 API contract | — | Done |
+| [TASK-03](TASK-03-api-python.md) | New backend: `api-python` (FastAPI) | 02 | Done |
+| [TASK-04](TASK-04-normalize-api-dotnet.md) | Normalize `api-dotnet` to the v1 contract | 02 | Done |
+| [TASK-05](TASK-05-normalize-api-nodejs.md) | Normalize `api-nodejs` to the v1 contract | 02 | Done |
+| [TASK-06](TASK-06-conformance-test-suite.md) | Cross-backend conformance test suite | 02 | Done |
+| [TASK-07](TASK-07-frontend-capability-driven-engines.md) | Frontend: capability-driven engines + Python | 02, 03, 04, 05 | Done |
+| [TASK-08](TASK-08-cicd-and-docs.md) | CI/CD workflows and documentation | 01, 03–07 | Done |
 
 ## Execution order
 

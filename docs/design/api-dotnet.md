@@ -16,10 +16,11 @@
 
 ```
 api-dotnet/
-├── Program.cs                      # Entry point
+├── Program.cs                      # Entry point, Kestrel MaxRequestBodySize (8192 bytes)
 ├── Startup.cs                      # Middleware pipeline & DI
 ├── Controllers/
 │   ├── HomeController.cs           # GET / (redirect), GET /api/version
+│   ├── CapabilitiesController.cs   # GET /api/capabilities
 │   └── RegexController.cs          # POST /api/regex
 ├── Services/
 │   ├── RegExProcessor.cs           # Core regex engine (IRegExProcessor)
@@ -27,7 +28,9 @@ api-dotnet/
 ├── Models/
 │   ├── Input.cs                    # Request DTO
 │   ├── RegexResult.cs              # Response DTOs (RegexResult, MatchResult, GroupResult, CaptureResult)
-│   └── RegExTesterOptions.cs       # Bitwise flags enum
+│   ├── RegExTesterOptions.cs       # Bitwise flags enum + shared option registry
+│   ├── Capabilities.cs             # CapabilitiesResult, Limits, Features, CapabilityOption DTOs
+│   └── VersionResult.cs            # /api/version response DTO
 ├── appsettings.json                # Production config
 ├── appsettings.Development.json    # Dev config
 └── RegExTester.Api.DotNet.csproj   # Project file
@@ -41,16 +44,24 @@ api-dotnet/
 
 ### GET /api/version
 
-Returns runtime version info. Response cached for 24 hours.
+Returns engine identity and runtime version info. Response cached for 24 hours.
 
 ```json
 {
-  "os": "Windows 11 Pro 10.0.26200",
+  "engineKey": "DOTNET",
+  "engineName": ".Net",
+  "contractVersion": "1.0",
+  "os": "Microsoft Windows 10.0.26200",
   "framework": ".NET 10.0.0"
 }
 ```
 
-In DEBUG builds, includes `"debug": 1`.
+### GET /api/capabilities
+
+Reports limits, features, and the full option flag registry (cached 24h). `features.captures` is
+`"multi"` — `System.Text.RegularExpressions.Group.Captures` retains every capture of a repeated
+group, unlike api-nodejs/api-python. See [api-contract.md](api-contract.md) for the full response
+shape.
 
 ### POST /api/regex
 
@@ -87,7 +98,15 @@ Executes a regex pattern against input text.
 }
 ```
 
-**Validation (400)**: pattern > 512, text > 1024, or replace > 1024 chars.
+`matches` is always `[]` (never omitted or `null`), including on error, and all response fields
+are always emitted — no null-omission.
+
+**Validation (400)**: pattern > 512, text > 1024, or replace > 1024 chars — returns an RFC 9457
+`ProblemDetails` body with `errors: { field: string[] }`.
+
+**Body too large (413)**: a raw request body over `maxRequestBodyBytes` (8192 bytes, enforced by
+Kestrel's `MaxRequestBodySize` in `Program.cs`) returns HTTP 413 with a `ProblemDetails` JSON
+body, before the body is parsed or any field is validated.
 
 ## Core Service: RegExProcessor
 
@@ -109,28 +128,38 @@ Executes a regex pattern against input text.
 
 ## Middleware Pipeline
 
-1. CORS — configured origins from `AllowCors` config; `AllowAnyOrigin()` in DEBUG
-2. Response Caching
-3. HTTPS Redirection
-4. Routing
-5. Request Timeouts — 5-second default policy
-6. Authorization (placeholder)
-7. Endpoints — controllers, OpenAPI (`/openapi/v1.json`), Scalar UI (`/scalar/v1`)
+1. Exception-handling middleware — catches Kestrel's oversized-body exception and turns it into an
+   HTTP 413 `ProblemDetails` response (registered immediately inside `UseDeveloperExceptionPage()`
+   so it still sees the exception in Development)
+2. CORS — configured origins from `AllowCors` config, plus localhost origins reflected
+   (never a wildcard) in Development
+3. Response Caching
+4. HTTPS Redirection
+5. Routing
+6. Request Timeouts — 5-second timeout that returns HTTP 200 with an `error`-populated body
+   (never HTTP 408)
+7. Authorization (placeholder)
+8. Endpoints — controllers, OpenAPI (`/openapi/v1.json`), Scalar UI (`/scalar/v1`)
 
 ## Configuration
 
 | Setting | Dev | Production |
 |---------|-----|------------|
 | AllowedHosts | localhost | regex-tester-api-dotnet.azurewebsites.net |
-| AllowCors | `["*"]` | `["https://regextester.github.io"]` |
+| AllowCors | `["https://regextester.github.io"]` | `["https://regextester.github.io"]` |
 | Cosmos:ConnectionString | (empty) | (set via Azure config) |
 | Cosmos:Database | regex-tester-db | regex-tester-db |
 | Cosmos:Container | telemetry | telemetry |
 
+In Development, CORS additionally reflects (never wildcards) any `http(s)://localhost[:port]`
+origin, so local frontend dev servers on arbitrary ports work without granting access to the
+whole internet.
+
 ## JSON Serialization
 
-- Uses System.Text.Json with `JsonIgnoreCondition.WhenWritingNull`
-- Null fields (e.g., `captures` when ShowCaptures is off) are omitted from response
+- Uses System.Text.Json
+- Every declared response field is always emitted, including `null` values (e.g. `captures` when
+  `ShowCaptures` is off) — no null-omission, per the shared v1 contract
 
 ## Deployment
 

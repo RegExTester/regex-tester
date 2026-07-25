@@ -1,0 +1,87 @@
+name: Contract tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  contract-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - engine: dotnet
+            port: 5000
+          - engine: nodejs
+            port: 5100
+          - engine: python
+            port: 5200
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Always needed: the contract suite itself (tests/contract) runs on vitest/Node.js,
+      # regardless of which backend is under test.
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.x'
+
+      - name: Setup .NET
+        if: matrix.engine == 'dotnet'
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Setup Python
+        if: matrix.engine == 'python'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Start api-dotnet
+        if: matrix.engine == 'dotnet'
+        working-directory: api-dotnet
+        run: |
+          dotnet restore
+          ASPNETCORE_URLS=http://localhost:5000 ASPNETCORE_ENVIRONMENT=Development \
+            nohup dotnet run --no-launch-profile > dotnet.log 2>&1 &
+
+      - name: Start api-nodejs
+        if: matrix.engine == 'nodejs'
+        working-directory: api-nodejs
+        run: |
+          npm ci
+          PORT=5100 nohup npm start > nodejs.log 2>&1 &
+
+      - name: Start api-python
+        if: matrix.engine == 'python'
+        working-directory: api-python
+        run: |
+          pip install -r requirements.txt
+          PORT=5200 nohup python -m uvicorn src.main:app --host 0.0.0.0 --port 5200 > python.log 2>&1 &
+
+      - name: Wait for backend to become ready
+        run: |
+          for i in $(seq 1 30); do
+            if curl -sf "http://localhost:${{ matrix.port }}/api/version" > /dev/null; then
+              echo "Backend on port ${{ matrix.port }} is ready."
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "::error::Backend on port ${{ matrix.port }} did not become ready in time."
+          exit 1
+
+      - name: Install contract suite dependencies
+        working-directory: tests/contract
+        run: npm ci
+
+      - name: Run contract suite
+        working-directory: tests/contract
+        env:
+          BASE_URL: http://localhost:${{ matrix.port }}
+        run: npx vitest run

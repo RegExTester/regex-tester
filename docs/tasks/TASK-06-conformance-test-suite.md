@@ -7,7 +7,7 @@
 | **Blocks** | TASK-08 |
 | **Runs in parallel with** | TASK-03, TASK-04, TASK-05 |
 | **Plan** | [docs/plan/2026-07-25-api-contract-and-python-backend.md](../plan/2026-07-25-api-contract-and-python-backend.md) |
-| **Status** | Not started |
+| **Status** | Done |
 
 ## Context
 

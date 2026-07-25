@@ -2,7 +2,7 @@
 
 ## Overview
 
-Vue 3 Single Page Application providing a real-time regex testing interface with multi-engine support. Users can switch between .NET and Node.js backends at runtime. Features debounced input, match highlighting, group/capture display, and URL-based sharing.
+Vue 3 Single Page Application providing a real-time regex testing interface with multi-engine support. Users can switch between .NET, Node.js, and Python backends at runtime. On engine switch, the frontend fetches `GET /api/capabilities` from the newly selected engine and renders its option checkboxes dynamically. Features debounced input, match highlighting, group/capture display, and URL-based sharing.
 
 ## Technology Stack
 
@@ -24,7 +24,10 @@ ui-vuejs/
 │   ├── utils/
 │   │   └── encodeUriHelper.js      # Base64Url codec (RFC7515)
 │   ├── App.vue                     # Root component (RouterView)
-│   ├── config.js                   # Configuration (endpoints, options, engines)
+│   ├── config.js                   # Registers all engines (merges config.<engine>.js)
+│   ├── config.dotnet.js            # .NET engine: endpoints, bundled fallback option list
+│   ├── config.nodejs.js            # Node.js engine: endpoints, bundled fallback option list
+│   ├── config.python.js            # Python engine: endpoints, bundled fallback option list
 │   ├── main.js                     # Vue app bootstrap
 │   └── styles.css                  # Global styles
 ├── .env                            # Dev environment variables
@@ -43,7 +46,7 @@ ui-vuejs/
 Single-file component using `<script setup>` (Composition API).
 
 **State (refs)**:
-- `selectedEngine` — `'DOTNET'` or `'NODEJS'`
+- `selectedEngine` — `'DOTNET'`, `'NODEJS'`, or `'PYTHON'`
 - `engine` — version string from `/api/version` (or `'offline'`)
 - `pattern`, `text`, `replace` — form inputs
 - `result` — API response object
@@ -51,7 +54,7 @@ Single-file component using `<script setup>` (Composition API).
 - `busy` — loading flag
 - `activeTab` — `'matches'` or `'replace'`
 - `expandMatchResult` — tracks expanded match cards
-- `options` — reactive array of checkboxes with `{ name, value, checked }`
+- `options` — reactive array of checkboxes with `{ name, value, checked, supported, flag }`, rebuilt from the live `/api/capabilities` response when available
 
 **Computed**:
 - `engineTooltip` — tooltip text based on engine status
@@ -72,8 +75,9 @@ The header contains a Bootstrap dropdown listing engines from `CONFIG.ENGINES`:
 
 ```
 ENGINES: {
-  DOTNET: { Name: '.Net',    Key: 'DOTNET' },
-  NODEJS: { Name: 'Node.js', Key: 'NODEJS' },
+  DOTNET: { Name: '.Net',    Key: 'DOTNET', Index: 0, ... },
+  NODEJS: { Name: 'Node.js', Key: 'NODEJS', Index: 1, ... },
+  PYTHON: { Name: 'Python',  Key: 'PYTHON', Index: 2, ... },
 }
 ```
 
@@ -81,9 +85,26 @@ On selection change:
 1. `selectedEngine` ref updates
 2. `warmUpApiServer()` pings the new engine's `/api/version`
 3. Engine status icon shows loading → online/offline
-4. `delaySubmit()` re-runs the current regex against the new engine
+4. `fetchCapabilities()` requests the new engine's `/api/capabilities` (5s timeout, 10-minute in-memory cache per engine) and, on success, rebuilds the option checkboxes to match exactly what that engine supports
+5. `delaySubmit()` re-runs the current regex against the new engine
 
-Both engines share the same API contract, so results are directly comparable.
+All engines share the same API contract, so results are directly comparable.
+
+## Capability-Driven Options
+
+Rather than hard-coding an option list per engine, the option checkboxes are rendered from each
+engine's `GET /api/capabilities` response:
+
+- Each entry in `capabilities.options` carries `{ value, name, flag, supported, description }`.
+- `rebuildOptionsFromCapabilities()` maps this list onto the checkbox UI, preserving whichever bits
+  are already set in the current bitmask.
+- A flag with `supported: false` is rendered **disabled**, showing the engine-native flag name (or
+  a "not supported" badge when `flag` is `null`) and a tooltip explaining that the bit is accepted
+  but ignored by the selected engine.
+- If `/api/capabilities` is unreachable or times out (5s), the component falls back to the bundled
+  per-engine option list in `config.<engine>.js` instead — the fallback is rendered immediately and
+  only replaced if the live fetch later succeeds, so there is no loading flicker or dead UI while
+  offline.
 
 ## Routing
 
@@ -113,6 +134,7 @@ fetch(apiConfig().REGEX, {
 |----------|-----------|------------------------------|
 | `VITE_API_DOTNET` | `http://localhost:5000` | `https://regex-tester-api-dotnet.azurewebsites.net` |
 | `VITE_API_NODEJS` | `http://localhost:5100` | `https://regex-tester-api-nodejs.azurewebsites.net` |
+| `VITE_API_PYTHON` | `http://localhost:5200` | `https://regex-tester-api-python.azurewebsites.net` |
 
 ## UI Layout (Bootstrap Grid)
 

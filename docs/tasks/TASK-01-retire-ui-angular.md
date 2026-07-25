@@ -6,7 +6,7 @@
 | **Depends on** | Nothing — can start immediately |
 | **Blocks** | Nothing |
 | **Plan** | [docs/plan/2026-07-25-api-contract-and-python-backend.md](../plan/2026-07-25-api-contract-and-python-backend.md) |
-| **Status** | Not started |
+| **Status** | Done |
 
 ## Context
 

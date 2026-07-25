@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Date** | 2026-07-25 |
-| **Status** | Approved — not yet implemented |
+| **Status** | Implemented |
 | **Goal** | Define one engine-agnostic API contract shared by all backends, add a Python backend, and make adding future backends (e.g. Rust) a drop-in exercise. |
 
 ---
