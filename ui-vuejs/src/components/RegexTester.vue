@@ -301,13 +301,18 @@ function apiConfig() {
 }
 
 const capabilitiesCache = {}
-const CAPABILITIES_CACHE_TTL = 10 * 60 * 1000 // 10 minutes
-const CAPABILITIES_FETCH_TIMEOUT = 5000 // ms; guards against a stalled/offline backend hanging forever
+// Matches the `Cache-Control: max-age=86400` every backend sends for this document, so the
+// in-memory memo and the browser HTTP cache do not disagree about how long it stays fresh.
+const CAPABILITIES_CACHE_TTL = 24 * 60 * 60 * 1000 // 24 hours
+// Budget for every API call EXCEPT /api/capabilities. Well clear of the backends' own 5s request
+// timeout (which returns HTTP 200 with an error body rather than hanging), so this only fires when
+// the transport is stuck, never when the server is merely slow at regex.
+const API_REQUEST_TIMEOUT = 15000
 
-function fetchWithTimeout(url, ms) {
+function fetchWithTimeout(url, options, ms) {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), ms)
-  return fetch(url, { signal: controller.signal }).finally(() => clearTimeout(timer))
+  return fetch(url, { ...options, signal: controller.signal }).finally(() => clearTimeout(timer))
 }
 
 function fetchCapabilities(engineKey) {
@@ -315,7 +320,11 @@ function fetchCapabilities(engineKey) {
   if (cached && Date.now() - cached.at < CAPABILITIES_CACHE_TTL) {
     return Promise.resolve(cached.value)
   }
-  return fetchWithTimeout(engineConfig(engineKey).API.CAPABILITIES, CAPABILITIES_FETCH_TIMEOUT)
+  // Deliberately untimed: this is the warm-up call. A cold Azure App Service instance can take far
+  // longer than any fixed budget to serve its first byte, and aborting it cancels the very request
+  // that is waking the backend up. An unreachable host still rejects (DNS failure, connection
+  // refused, the browser's own network timeout) and drives the 'offline' fallback below.
+  return fetch(engineConfig(engineKey).API.CAPABILITIES)
     .then(r => {
       if (!r.ok) throw new Error(r.statusText)
       return r.json()
@@ -393,7 +402,7 @@ function submit() {
 
   updateUrl(url)
 
-  fetch(apiConfig().REGEX, {
+  fetchWithTimeout(apiConfig().REGEX, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -402,7 +411,7 @@ function submit() {
       replace: activeTab.value === 'replace' ? replace.value : null,
       options: optionsBitmask
     })
-  })
+  }, API_REQUEST_TIMEOUT)
     .then(r => r.json().then(data => ({ ok: r.ok, status: r.status, data })))
     .then(({ ok, status, data }) => {
       if (!ok) {
@@ -421,8 +430,12 @@ function submit() {
       highlightText.value = ht
       busy.value = false
     })
-    .catch(() => {
-      result.value = { error: 'Error: Cannot contact the API.' }
+    .catch(err => {
+      result.value = {
+        error: err?.name === 'AbortError'
+          ? `Error: The request timed out after ${API_REQUEST_TIMEOUT / 1000} seconds.`
+          : 'Error: Cannot contact the API.'
+      }
       busy.value = false
     })
 }

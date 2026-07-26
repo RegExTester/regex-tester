@@ -330,9 +330,11 @@ and confirm each returns matches without a CORS error in the browser console.
   not a CORS bug, it's overly-permissive dev CORS silently active).
 - **App Service cold starts vs. the 5 s request timeout**: a cold Linux App Service instance can
   take longer than 5 s to serve its first request after idling, which the *client* sees as the
-  backend's own "request timed out" body (still HTTP 200) rather than a network error. Consider an
-  Always On setting (requires a plan tier that supports it; S1 does) or a warm-up ping if this is
-  disruptive.
+  backend's own "request timed out" body (still HTTP 200) rather than a network error. The frontend
+  no longer cancels the warm-up call — `GET /api/capabilities` is issued with no client timeout, so
+  the engine indicator waits for a cold instance instead of flipping to `offline` — but that only
+  hides the symptom. The fix is the **Always On** setting (requires a plan tier that supports it;
+  `S1` does) or a warm-up ping.
 - **api-python startup command**: if the app returns App Service's default "Application Error"
   page, re-check the startup command with
   `az webapp config show --name regex-tester-api-python --resource-group regex-tester --query linuxFxVersion`

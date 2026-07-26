@@ -68,6 +68,12 @@ Every outcome — success, a bad pattern, the 15 s regex timeout, or the 5 s req
 HTTP 200 with the result carried in the `error` field. The client never has to special-case an HTTP
 error status for a regex-level failure.
 
+The browser applies its own 15 s budget to `POST /api/regex` — comfortably outside the backend's 5 s
+request timeout, so it only fires when the transport is stuck. `GET /api/capabilities` is issued
+**without** a client timeout: it is the warm-up call, and a cold App Service instance can take longer
+to answer than any fixed budget, so aborting it would cancel the request that is waking the backend
+up. See [docs/design/ui-vuejs.md](docs/design/ui-vuejs.md) for the full policy.
+
 ## Contract-first design
 
 All four backends implement one canonical OpenAPI 3.1.1 document,

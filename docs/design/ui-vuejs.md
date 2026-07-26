@@ -89,7 +89,7 @@ On selection change:
 1. `selectedEngine` ref updates
 2. `warmUpApiServer()` pings the new engine's `/api/capabilities` and reads `runtime.framework`
 3. Engine status icon shows loading → online/offline
-4. `fetchCapabilities()` requests the new engine's `/api/capabilities` (5s timeout, 10-minute in-memory cache per engine) and, on success, rebuilds the option checkboxes to match exactly what that engine supports
+4. `fetchCapabilities()` requests the new engine's `/api/capabilities` (no client timeout, 24-hour in-memory cache per engine) and, on success, rebuilds the option checkboxes to match exactly what that engine supports
 5. `delaySubmit()` re-runs the current regex against the new engine
 
 All engines share the same API contract, so results are directly comparable.
@@ -105,10 +105,35 @@ engine's `GET /api/capabilities` response:
 - A flag with `supported: false` is rendered **disabled**, showing the engine-native flag name (or
   a "not supported" badge when `flag` is `null`) and a tooltip explaining that the bit is accepted
   but ignored by the selected engine.
-- If `/api/capabilities` is unreachable or times out (5s), the component falls back to the bundled
-  per-engine option list in `config.<engine>.js` instead — the fallback is rendered immediately and
-  only replaced if the live fetch later succeeds, so there is no loading flicker or dead UI while
-  offline.
+- If `/api/capabilities` is unreachable, the component falls back to the bundled per-engine option
+  list in `config.<engine>.js` instead — the fallback is rendered immediately and only replaced if
+  the live fetch later succeeds, so there is no loading flicker or dead UI while offline.
+
+## Request Timeouts
+
+| Call | Client timeout |
+|---|---|
+| `GET /api/capabilities` | **none** |
+| every other API call (today: `POST /api/regex`) | `API_REQUEST_TIMEOUT`, 15 s |
+
+The capabilities call is the warm-up call. A cold Azure App Service instance can take far longer
+than any fixed budget to serve its first byte, so aborting it cancels the very request that is
+waking the backend up — the engine indicator stays in its `Loading...` state instead of falsely
+reporting `offline`. An unreachable host still rejects (DNS failure, connection refused, or the
+browser's own network timeout) and drives the fallback above, so "no timeout" means no *application*
+timeout, not an unbounded hang.
+
+15 s for everything else sits well clear of each backend's own 5 s request timeout, which returns
+HTTP 200 with an `error` body rather than hanging; the client abort therefore only fires when the
+transport is stuck. An abort renders a timeout-specific message rather than
+`Error: Cannot contact the API.`, so a stuck transport is not misdiagnosed as an outage.
+
+The 24-hour in-memory capabilities memo matches the `Cache-Control: max-age=86400` every backend
+sends, so the memo and the browser HTTP cache agree on freshness.
+
+See [docs/plan/2026-07-26-frontend-request-timeouts.md](../plan/2026-07-26-frontend-request-timeouts.md)
+for the benchmarks behind this policy — in particular why caching the backends' `runtime` probe was
+measured and rejected.
 
 ## Routing
 

@@ -6,6 +6,7 @@ Source plans:
 - [docs/plan/2026-07-25-gate-deploys-on-tests.md](../plan/2026-07-25-gate-deploys-on-tests.md) — TASK-14
 - [docs/plan/2026-07-25-add-java-backend.md](../plan/2026-07-25-add-java-backend.md) — TASK-15 … TASK-18
 - [docs/plan/2026-07-25-java-pattern-flags.md](../plan/2026-07-25-java-pattern-flags.md) — TASK-19 … TASK-22
+- [docs/plan/2026-07-26-frontend-request-timeouts.md](../plan/2026-07-26-frontend-request-timeouts.md) — TASK-23 … TASK-24
 
 | Task | Title | Depends on | Status |
 |---|---|---|---|
@@ -31,6 +32,8 @@ Source plans:
 | [TASK-20](TASK-20-backends-java-pattern-flags.md) | Backends: implement the four new option bits | 19 | Done |
 | [TASK-21](TASK-21-frontend-and-conformance-java-pattern-flags.md) | Frontend fallback, conformance tests, spec repair | 20 | Done |
 | [TASK-22](TASK-22-docs-java-pattern-flags.md) | Documentation and OpenAPI snapshots for the new flags | 20 | Done |
+| [TASK-23](TASK-23-frontend-request-timeouts.md) | Frontend request-timeout policy | — | Done |
+| [TASK-24](TASK-24-cache-assertion-and-docs.md) | Harden the cache-header assertion and document the timeout policy | 23 | Done |
 
 ## Execution order
 
@@ -62,6 +65,7 @@ graph LR
   T18 --> T19 --> T20
   T20 --> T21
   T20 --> T22
+  T23[TASK-23<br/>FE timeout policy] --> T24[TASK-24<br/>cache assertion + docs]
 ```
 
 **Wave 1** — TASK-01 and TASK-02 (independent, parallel)
@@ -79,6 +83,8 @@ graph LR
 **Wave 13** — TASK-19
 **Wave 14** — TASK-20
 **Wave 15** — TASK-21, TASK-22 (parallel; disjoint file sets)
+**Wave 16** — TASK-23
+**Wave 17** — TASK-24
 
 TASK-09 and TASK-10 both modify `ui-vuejs/src/components/RegexTester.vue`, so they must run in
 **different waves** even though their concerns are otherwise disjoint. TASK-12 documents the telemetry
@@ -126,6 +132,8 @@ Each task owns a disjoint set of paths so parallel execution cannot conflict.
 | TASK-20 | `api-dotnet/Models/RegExTesterOptions.cs`, `api-nodejs/src/services/capabilities.js`, `api-python/src/options.py`, `api-java/src/main/java/io/github/regextester/api/options/RegexOptions.java` |
 | TASK-21 | `tests/contract/src/specs/**`, `ui-vuejs/src/config.java.js` |
 | TASK-22 | `docs/design/api-dotnet.md`, `docs/design/api-nodejs.md`, `docs/design/api-python.md`, `docs/design/api-java.md`, `api-*/ARCHITECTURE.md`, `docs/open-api/*.v1.json` |
+| TASK-23 | `ui-vuejs/src/components/RegexTester.vue` |
+| TASK-24 | `tests/contract/src/specs/capabilities.spec.js`, `docs/design/ui-vuejs.md`, `ARCHITECTURE.md`, `DEPLOYMENT.md`, `CLAUDE.md`, `docs/tasks/README.md` |
 
 TASK-01 and TASK-04 both touch `api-dotnet/` and the generated OpenAPI JSON, so they run in **different
 waves**. TASK-01 changes only XML doc comment prose; TASK-04 regenerates the OpenAPI JSON afterwards.

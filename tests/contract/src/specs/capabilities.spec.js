@@ -51,11 +51,15 @@ describe('GET /api/capabilities', () => {
     expect(body).not.toHaveProperty('frameworkDescription');
   });
 
-  it('is cacheable for 24 hours', async () => {
+  it('is publicly cacheable for 24 hours', async () => {
     const res = await get('/api/capabilities');
-    const cacheControl = res.headers.get('cache-control') ?? '';
+    const cacheControl = (res.headers.get('cache-control') ?? '').toLowerCase();
 
-    expect(cacheControl).toMatch(/max-age=86400/);
+    // Asserted as two independent tokens, never as one literal: Spring emits
+    // "max-age=86400, public" while api-dotnet, api-nodejs and api-python emit
+    // "public, max-age=86400". A fixed-string match would pass three engines and fail Java.
+    expect(cacheControl).toMatch(/(^|[\s,])max-age=86400([\s,]|$)/);
+    expect(cacheControl).toMatch(/(^|[\s,])public([\s,]|$)/);
   });
 
   it('lists a non-empty set of options, none of which is the reserved bit 128', async () => {

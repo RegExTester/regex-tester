@@ -93,7 +93,8 @@ OpenAPI 3.1.1 document).
 **GET /api/capabilities** — Reports engine identity, `runtime` (`os`, `framework`), limits, features, and
 the full option flag registry (cached 24h) so the frontend can render option checkboxes dynamically
 instead of hard-coding a list per engine. See [docs/design/api-contract.md](docs/design/api-contract.md)
-for the full response shape.
+for the full response shape. The frontend issues this call with **no client timeout** (it is the
+warm-up call for a cold App Service instance) and applies a 15 s timeout to every other API call.
 
 **GET /** — 302 redirect to `https://regextester.github.io/`.
 
