@@ -81,7 +81,7 @@ namespace RegExTester.Api.DotNet
             services.AddTransient<IRegExProcessor, RegExProcessor>();
             services.AddSingleton<ITelemetryService>(sp =>
                 new TelemetryService(
-                    Configuration["Cosmos:ConnectionString"],
+                    Configuration["Cosmos:Endpoint"],
                     Configuration["Cosmos:Database"],
                     Configuration["Cosmos:Container"],
                     sp.GetRequiredService<ILogger<TelemetryService>>())
@@ -91,6 +91,11 @@ namespace RegExTester.Api.DotNet
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
         public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
         {
+            // Resolved eagerly so the Cosmos handshake runs here, on the startup path, rather than
+            // lazily during the first POST /api/regex — which would both delay that request and, on
+            // the other engines' equivalent, lose its telemetry entirely.
+            app.ApplicationServices.GetRequiredService<ITelemetryService>();
+
             if (env.IsDevelopment())
             {
                 app.UseDeveloperExceptionPage();

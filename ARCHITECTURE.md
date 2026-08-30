@@ -19,7 +19,7 @@ flowchart TD
         Dotnet["api-dotnet: .NET 10 / ASP.NET Core"]
         Nodejs["api-nodejs: Node.js 22 / Express 5"]
         Python["api-python: Python 3.13 / FastAPI"]
-        Java["api-java: Java 21 / Spring Boot 3.4"]
+        Java["api-java: Java 21 / Javalin 6.7"]
     end
 
     Cosmos[("Azure Cosmos DB: regex-tester-db / telemetry")]
@@ -142,10 +142,30 @@ All four backends write an identical 12-field document (`id`, `engineKey`, `time
 `userAgent`, `pattern`, `text`, `replace`, `options`, `durationMs`, `matchCount`, `error`) to one
 shared Cosmos DB container, `regex-tester-db`/`telemetry`, partitioned on `/timestamp`. Writes are
 fire-and-forget on every engine: a Cosmos outage can never affect the response already sent, and an
-empty connection string disables telemetry silently without preventing startup. No client IP is
+empty endpoint setting disables telemetry silently without preventing startup. No client IP is
 collected. `engineKey` is a plain field on the document, so per-engine queries are cross-partition —
 an intentional trade so the partition key stays unchanged and no container ever needs recreating.
 See [DEPLOYMENT.md](DEPLOYMENT.md).
+
+**Authentication is Entra ID, never an account key.** Each web app has a system-assigned managed
+identity holding the Cosmos DB Built-in Data Contributor data-plane role, and each backend builds
+its client with `DefaultAzureCredential` — which also resolves a developer's `az login` session
+locally. No secret exists in any app setting. A rotated account key silently disabled telemetry for
+five weeks in 2026-07; removing the key removes that failure mode entirely.
+
+That role deliberately grants no permission to create databases or containers, so **the backends
+never create them** — they resolve a container handle and verify access with a single metadata read
+at startup. The container is provisioned once, out of band.
+
+**Initialization is the opposite of the writes: blocking, and bounded at 10 s.** Every engine
+establishes its Cosmos client on the startup path, before it accepts requests, so the first request
+after a restart is recorded rather than silently discarded — App Service recycles instances
+routinely, so a warm-up window is continuous data loss, not an edge case. Each engine enforces the
+bound itself (`Task.Wait` in .NET, `Promise.race` in Node.js, a joined thread in Python,
+`Future.get` in Java) rather than trusting its SDK's cancellation or timeout arguments, all of which
+were measured overshooting a 10 s budget against a blackholed endpoint. On expiry the engine logs a
+warning and starts anyway: telemetry is non-essential, and turning its outage into a failed start
+would be strictly worse than the data loss it prevents.
 
 ## Known deliberate engine divergences
 

@@ -4,13 +4,6 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
-  <parent>
-    <groupId>org.springframework.boot</groupId>
-    <artifactId>spring-boot-starter-parent</artifactId>
-    <version>3.4.1</version>
-    <relativePath/>
-  </parent>
-
   <groupId>io.github.regextester</groupId>
   <artifactId>regex-tester-api-java</artifactId>
   <version>1.0.0</version>
@@ -20,39 +13,69 @@
   <properties>
     <!-- Java 21 is a hard requirement, not a preference: RegexProcessor uses
          Pattern.namedGroups(), which was added in Java 20. -->
-    <java.version>21</java.version>
+    <maven.compiler.release>21</maven.compiler.release>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <springdoc.version>2.7.0</springdoc.version>
+    <javalin.version>6.7.0</javalin.version>
+    <javalin.openapi.version>6.7.0-1</javalin.openapi.version>
+    <jackson.version>2.18.2</jackson.version>
+    <slf4j.version>2.0.16</slf4j.version>
     <azure.cosmos.version>4.65.0</azure.cosmos.version>
+    <azure.identity.version>1.15.0</azure.identity.version>
   </properties>
 
   <dependencies>
+    <!-- Embedded Jetty with no DI container, replacing Spring Boot: measured 0.63 s to listening
+         against Spring's 2.31 s for the identical contract (docs/plan/2026-08-30-api-java-javalin.md). -->
     <dependency>
-      <groupId>org.springframework.boot</groupId>
-      <artifactId>spring-boot-starter-web</artifactId>
+      <groupId>io.javalin</groupId>
+      <artifactId>javalin</artifactId>
+      <version>${javalin.version}</version>
     </dependency>
 
-    <!-- Bean Validation, backing the pattern/text/replace maxLength checks that must
-         surface as HTTP 400 RFC 9457 ProblemDetails. -->
+    <!-- Serves the OpenAPI document at /openapi/v1.json and the explorer at /scalar/v1. The
+         companion annotation processor below generates the document at COMPILE time, so unlike
+         springdoc it cannot drift from the handlers and costs nothing at startup. -->
     <dependency>
-      <groupId>org.springframework.boot</groupId>
-      <artifactId>spring-boot-starter-validation</artifactId>
+      <groupId>io.javalin.community.openapi</groupId>
+      <artifactId>javalin-openapi-plugin</artifactId>
+      <version>${javalin.openapi.version}</version>
     </dependency>
 
-    <!-- Serves the OpenAPI document at /openapi/v1.json and the explorer at /scalar/v1
-         (paths configured in application.properties). -->
+    <!-- The Swagger UI itself ships separately from the document generator above. -->
     <dependency>
-      <groupId>org.springdoc</groupId>
-      <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
-      <version>${springdoc.version}</version>
+      <groupId>io.javalin.community.openapi</groupId>
+      <artifactId>javalin-swagger-plugin</artifactId>
+      <version>${javalin.openapi.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>com.fasterxml.jackson.core</groupId>
+      <artifactId>jackson-databind</artifactId>
+      <version>${jackson.version}</version>
+    </dependency>
+
+    <!-- Javalin logs through slf4j; without a binding it warns on every start. -->
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-simple</artifactId>
+      <version>${slf4j.version}</version>
     </dependency>
 
     <!-- Optional telemetry sink. Never required at runtime: an empty
-         COSMOS_CONNECTION_STRING disables telemetry silently. -->
+         COSMOS_ENDPOINT disables telemetry silently. -->
     <dependency>
       <groupId>com.azure</groupId>
       <artifactId>azure-cosmos</artifactId>
       <version>${azure.cosmos.version}</version>
+    </dependency>
+
+    <!-- Entra ID authentication for the telemetry sink: DefaultAzureCredential resolves the
+         App Service managed identity in Azure and the developer's az login session locally,
+         so no Cosmos account key exists anywhere. -->
+    <dependency>
+      <groupId>com.azure</groupId>
+      <artifactId>azure-identity</artifactId>
+      <version>${azure.identity.version}</version>
     </dependency>
   </dependencies>
 
@@ -62,8 +85,53 @@
     <finalName>app</finalName>
     <plugins>
       <plugin>
-        <groupId>org.springframework.boot</groupId>
-        <artifactId>spring-boot-maven-plugin</artifactId>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <version>3.13.0</version>
+        <configuration>
+          <annotationProcessorPaths>
+            <path>
+              <groupId>io.javalin.community.openapi</groupId>
+              <artifactId>openapi-annotation-processor</artifactId>
+              <version>${javalin.openapi.version}</version>
+            </path>
+          </annotationProcessorPaths>
+        </configuration>
+      </plugin>
+
+      <!-- Replaces spring-boot-maven-plugin: an executable fat jar App Service can run directly. -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-shade-plugin</artifactId>
+        <version>3.6.0</version>
+        <executions>
+          <execution>
+            <phase>package</phase>
+            <goals><goal>shade</goal></goals>
+            <configuration>
+              <transformers>
+                <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                  <mainClass>io.github.regextester.api.App</mainClass>
+                </transformer>
+                <!-- Jetty and the Azure SDKs both rely on ServiceLoader; without this the
+                     merged jar loses their META-INF/services entries and fails at runtime. -->
+                <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
+              </transformers>
+              <filters>
+                <filter>
+                  <artifact>*:*</artifact>
+                  <excludes>
+                    <exclude>META-INF/*.SF</exclude>
+                    <exclude>META-INF/*.DSA</exclude>
+                    <exclude>META-INF/*.RSA</exclude>
+                    <exclude>module-info.class</exclude>
+                  </excludes>
+                </filter>
+              </filters>
+              <createDependencyReducedPom>false</createDependencyReducedPom>
+            </configuration>
+          </execution>
+        </executions>
       </plugin>
     </plugins>
   </build>

@@ -124,7 +124,7 @@ runtime source of truth for what `GET /api/capabilities` actually reports.
 
 ## 7. Telemetry Integration
 
-`TelemetryService` (singleton, `ITelemetryService`) is constructed from `Cosmos:ConnectionString` /
+`TelemetryService` (singleton, `ITelemetryService`) is constructed from `Cosmos:Endpoint` /
 `Cosmos:Database` / `Cosmos:Container` config keys. `RegExController.Post` calls
 `RecordTelemetry(...)` fire-and-forget, after computing the request's elapsed time with a
 `Stopwatch` and after building the regex result — the call never delays or affects the response.
@@ -141,9 +141,27 @@ runtime source of truth for what `GET /api/capabilities` actually reports.
   and partition key `/timestamp`. `CreateItemAsync` passes `new PartitionKey(item.timestamp)`, which
   must always match that path — passing `engineKey` instead would fail every write with
   `PartitionKeyMismatch`, silently, because the surrounding `catch` swallows it.
-- An empty `Cosmos:ConnectionString` makes `RecordTelemetry` a no-op (client/container stay
-  `null`). A bad or unreachable connection string is caught inside `InitCosmos`'s own `try/catch`
-  and logged at warning level — it can never prevent the app from starting.
+- An empty `Cosmos:Endpoint` makes `RecordTelemetry` a no-op (client/container stay
+  `null`). A bad or unreachable endpoint, a missing role assignment or an unavailable credential is
+  caught inside `ConnectAsync`'s own `try/catch` and logged at warning level — it can never prevent
+  the app from starting.
+- **Authentication is Entra ID, never a key.** `new CosmosClient(endpoint, new DefaultAzureCredential())`
+  resolves the App Service managed identity in Azure and the developer's `az login` session locally.
+  The identity holds the Cosmos DB Built-in Data Contributor data-plane role.
+- **The database and container are never created.** That role grants no control-plane permission, so
+  `ConnectAsync` calls `GetDatabase(...).GetContainer(...)` — pure client-side handles — and then a
+  single `ReadContainerAsync()`. Without that read, token acquisition and any 403 would be deferred
+  to the first write and lost in its catch; with it, misconfiguration surfaces in the startup log.
+  The container must already exist (DEPLOYMENT.md §2).
+- **Initialization runs at startup, not on first use.** `Startup.Configure` resolves
+  `ITelemetryService` eagerly, so the Cosmos handshake happens before Kestrel accepts a request and
+  the very first `POST /api/regex` is recorded. Previously the DI factory was lazy: initialization
+  ran during the first request, delaying it by the handshake.
+- Initialization is bounded at **10 s** (`InitTimeout`). `InitCosmos` runs `ConnectAsync` on a
+  `Task.Run` and `Wait`s on it; on expiry it logs a warning and startup proceeds. The bound is
+  enforced here rather than with a `CancellationToken` because the Cosmos SDK does not honour one
+  promptly against an unreachable endpoint — measured at ~37 s against a blackholed address for a
+  10 s token. A connection completing after the bound still publishes its client.
 
 ## 8. OpenAPI Generation and Where the Document Is Served
 

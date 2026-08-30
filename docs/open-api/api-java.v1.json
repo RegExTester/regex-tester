@@ -1,24 +1,60 @@
 {
-  "openapi": "3.0.1",
+  "openapi": "3.0.3",
   "info": {
     "title": "RegEx Tester API",
-    "description": "REST API for testing Java regular expressions using java.util.regex.",
-    "version": "1.0"
+    "version": "1.0",
+    "description": "REST API for testing Java regular expressions using java.util.regex."
   },
-  "servers": [
-    {
-      "url": "http://localhost:5300",
-      "description": "Generated server url"
-    }
-  ],
   "paths": {
+    "/": {
+      "get": {
+        "tags": [
+          "Home"
+        ],
+        "summary": "Redirect to the frontend",
+        "operationId": "root",
+        "parameters": [],
+        "responses": {
+          "302": {
+            "description": "Redirect to https://regextester.github.io/"
+          }
+        },
+        "deprecated": false,
+        "security": []
+      }
+    },
+    "/api/capabilities": {
+      "get": {
+        "tags": [
+          "Capabilities"
+        ],
+        "summary": "Report engine identity and the options, limits, and features this engine supports",
+        "operationId": "capabilities",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Capability document (cacheable for 24 hours)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Capabilities"
+                }
+              }
+            }
+          }
+        },
+        "deprecated": false,
+        "security": []
+      }
+    },
     "/api/regex": {
       "post": {
         "tags": [
           "RegEx"
         ],
         "summary": "Run a regular expression against input text",
-        "operationId": "post",
+        "operationId": "regex",
+        "parameters": [],
         "requestBody": {
           "content": {
             "application/json": {
@@ -33,7 +69,7 @@
           "200": {
             "description": "Match results. Regex errors and both timeouts are also reported here, via the `error` field — never as an HTTP error status.",
             "content": {
-              "*/*": {
+              "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/RegexResult"
                 }
@@ -60,186 +96,17 @@
               }
             }
           }
-        }
-      }
-    },
-    "/api/capabilities": {
-      "get": {
-        "tags": [
-          "Capabilities"
-        ],
-        "summary": "Report engine identity and the options, limits, and features this engine supports",
-        "operationId": "capabilities",
-        "responses": {
-          "200": {
-            "description": "Capability document (cacheable for 24 hours)",
-            "content": {
-              "*/*": {
-                "schema": {
-                  "$ref": "#/components/schemas/Capabilities"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/": {
-      "get": {
-        "tags": [
-          "Home"
-        ],
-        "summary": "Redirect to the frontend",
-        "operationId": "root",
-        "responses": {
-          "302": {
-            "description": "Redirect to https://regextester.github.io/"
-          }
-        }
+        },
+        "deprecated": false,
+        "security": []
       }
     }
   },
   "components": {
     "schemas": {
-      "Input": {
-        "type": "object",
-        "properties": {
-          "pattern": {
-            "maxLength": 512,
-            "minLength": 0,
-            "type": "string"
-          },
-          "text": {
-            "maxLength": 1024,
-            "minLength": 0,
-            "type": "string"
-          },
-          "replace": {
-            "maxLength": 1024,
-            "minLength": 0,
-            "type": "string"
-          },
-          "options": {
-            "type": "integer",
-            "format": "int32"
-          }
-        }
-      },
-      "ProblemDetailsResponse": {
-        "type": "object",
-        "properties": {
-          "type": {
-            "type": "string"
-          },
-          "title": {
-            "type": "string"
-          },
-          "status": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "errors": {
-            "type": "object",
-            "additionalProperties": {
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
-            }
-          }
-        }
-      },
-      "CaptureResult": {
-        "type": "object",
-        "properties": {
-          "index": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "length": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "value": {
-            "type": "string"
-          }
-        }
-      },
-      "GroupResult": {
-        "type": "object",
-        "properties": {
-          "name": {
-            "type": "string"
-          },
-          "index": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "length": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "value": {
-            "type": "string"
-          },
-          "captures": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/CaptureResult"
-            }
-          }
-        }
-      },
-      "MatchResult": {
-        "type": "object",
-        "properties": {
-          "name": {
-            "type": "string"
-          },
-          "index": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "length": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "value": {
-            "type": "string"
-          },
-          "groups": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/GroupResult"
-            }
-          },
-          "captures": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/CaptureResult"
-            }
-          }
-        }
-      },
-      "RegexResult": {
-        "type": "object",
-        "properties": {
-          "error": {
-            "type": "string"
-          },
-          "replace": {
-            "type": "string"
-          },
-          "matches": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/MatchResult"
-            }
-          }
-        }
-      },
       "Capabilities": {
         "type": "object",
+        "additionalProperties": false,
         "properties": {
           "engineKey": {
             "type": "string"
@@ -269,10 +136,14 @@
               "$ref": "#/components/schemas/CapabilityOption"
             }
           }
-        }
+        },
+        "required": [
+          "defaultOptions"
+        ]
       },
       "CapabilityOption": {
         "type": "object",
+        "additionalProperties": false,
         "properties": {
           "value": {
             "type": "integer",
@@ -290,10 +161,15 @@
           "description": {
             "type": "string"
           }
-        }
+        },
+        "required": [
+          "value",
+          "supported"
+        ]
       },
       "Features": {
         "type": "object",
+        "additionalProperties": false,
         "properties": {
           "replace": {
             "type": "boolean"
@@ -304,10 +180,15 @@
           "captures": {
             "type": "string"
           }
-        }
+        },
+        "required": [
+          "replace",
+          "namedGroups"
+        ]
       },
       "Limits": {
         "type": "object",
+        "additionalProperties": false,
         "properties": {
           "patternMaxLength": {
             "type": "integer",
@@ -333,10 +214,19 @@
             "type": "integer",
             "format": "int32"
           }
-        }
+        },
+        "required": [
+          "patternMaxLength",
+          "textMaxLength",
+          "replaceMaxLength",
+          "regexTimeoutMs",
+          "requestTimeoutMs",
+          "maxRequestBodyBytes"
+        ]
       },
       "Runtime": {
         "type": "object",
+        "additionalProperties": false,
         "properties": {
           "os": {
             "type": "string"
@@ -345,7 +235,168 @@
             "type": "string"
           }
         }
+      },
+      "CaptureResult": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "index": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "length": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "value": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "index",
+          "length"
+        ]
+      },
+      "GroupResult": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "index": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "length": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "value": {
+            "type": "string"
+          },
+          "captures": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CaptureResult"
+            }
+          }
+        },
+        "required": [
+          "index",
+          "length"
+        ]
+      },
+      "Input": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "pattern": {
+            "type": "string",
+            "maxLength": "512"
+          },
+          "text": {
+            "type": "string",
+            "maxLength": "1024"
+          },
+          "replace": {
+            "type": "string",
+            "maxLength": "1024"
+          },
+          "options": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "required": [
+          "options"
+        ]
+      },
+      "MatchResult": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "index": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "length": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "value": {
+            "type": "string"
+          },
+          "groups": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GroupResult"
+            }
+          },
+          "captures": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CaptureResult"
+            }
+          }
+        },
+        "required": [
+          "index",
+          "length"
+        ]
+      },
+      "ProblemDetailsResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "status": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "errors": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "RegexResult": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "error": {
+            "type": "string"
+          },
+          "replace": {
+            "type": "string"
+          },
+          "matches": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MatchResult"
+            }
+          }
+        }
       }
-    }
-  }
+    },
+    "securitySchemes": {}
+  },
+  "servers": [],
+  "security": null
 }

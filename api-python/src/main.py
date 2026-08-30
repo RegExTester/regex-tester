@@ -76,10 +76,10 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 app.include_router(home.router)
 app.include_router(regex.router)
 
-# Initialize telemetry (optional — silently disabled when COSMOS_CONNECTION_STRING is empty).
-# Never raises: a bad or unreachable connection string must not prevent the app from starting.
+# Initialize telemetry (optional — silently disabled when COSMOS_ENDPOINT is empty).
+# Never raises: a bad or unreachable endpoint must not prevent the app from starting.
 init_cosmos(
-    os.environ.get("COSMOS_CONNECTION_STRING", ""),
+    os.environ.get("COSMOS_ENDPOINT", ""),
     os.environ.get("COSMOS_DATABASE", "regex-tester-db"),
     os.environ.get("COSMOS_CONTAINER", "telemetry"),
 )

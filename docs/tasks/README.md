@@ -7,6 +7,9 @@ Source plans:
 - [docs/plan/2026-07-25-add-java-backend.md](../plan/2026-07-25-add-java-backend.md) — TASK-15 … TASK-18
 - [docs/plan/2026-07-25-java-pattern-flags.md](../plan/2026-07-25-java-pattern-flags.md) — TASK-19 … TASK-22
 - [docs/plan/2026-07-26-frontend-request-timeouts.md](../plan/2026-07-26-frontend-request-timeouts.md) — TASK-23 … TASK-24
+- [docs/plan/2026-08-30-telemetry-startup-init.md](../plan/2026-08-30-telemetry-startup-init.md) — TASK-25 … TASK-27
+- [docs/plan/2026-08-30-cosmos-managed-identity.md](../plan/2026-08-30-cosmos-managed-identity.md) — TASK-28 … TASK-29
+- [docs/plan/2026-08-30-api-java-javalin.md](../plan/2026-08-30-api-java-javalin.md) — TASK-30 … TASK-31
 
 | Task | Title | Depends on | Status |
 |---|---|---|---|
@@ -34,6 +37,13 @@ Source plans:
 | [TASK-22](TASK-22-docs-java-pattern-flags.md) | Documentation and OpenAPI snapshots for the new flags | 20 | Done |
 | [TASK-23](TASK-23-frontend-request-timeouts.md) | Frontend request-timeout policy | — | Done |
 | [TASK-24](TASK-24-cache-assertion-and-docs.md) | Harden the cache-header assertion and document the timeout policy | 23 | Done |
+| [TASK-25](TASK-25-contract-telemetry-startup-init.md) | Contract: telemetry initializes synchronously at startup | — | Done |
+| [TASK-26](TASK-26-backends-telemetry-startup-init.md) | Backends: synchronous bounded telemetry initialization | 25 | Done |
+| [TASK-27](TASK-27-docs-telemetry-startup-init.md) | Documentation: telemetry initialization and the stale-key runbook | 26 | Done |
+| [TASK-28](TASK-28-backends-cosmos-managed-identity.md) | Backends: Cosmos telemetry via managed identity | 26 | Done |
+| [TASK-29](TASK-29-provisioning-and-docs-managed-identity.md) | Azure provisioning and documentation for managed-identity telemetry | 28 | Done |
+| [TASK-30](TASK-30-api-java-javalin.md) | `api-java`: replace Spring Boot with Javalin | 28 | Done |
+| [TASK-31](TASK-31-docs-api-java-javalin.md) | Documentation: `api-java` on Javalin | 30 | Done |
 
 ## Execution order
 
@@ -66,6 +76,9 @@ graph LR
   T20 --> T21
   T20 --> T22
   T23[TASK-23<br/>FE timeout policy] --> T24[TASK-24<br/>cache assertion + docs]
+  T25[TASK-25<br/>contract: startup init rule] --> T26[TASK-26<br/>backends: startup init] --> T27[TASK-27<br/>docs + runbook]
+  T26 --> T28[TASK-28<br/>backends: managed identity] --> T29[TASK-29<br/>provisioning + docs]
+  T28 --> T30[TASK-30<br/>api-java: Javalin] --> T31[TASK-31<br/>docs: Javalin]
 ```
 
 **Wave 1** — TASK-01 and TASK-02 (independent, parallel)
@@ -85,6 +98,13 @@ graph LR
 **Wave 15** — TASK-21, TASK-22 (parallel; disjoint file sets)
 **Wave 16** — TASK-23
 **Wave 17** — TASK-24
+**Wave 18** — TASK-25
+**Wave 19** — TASK-26
+**Wave 20** — TASK-27
+**Wave 21** — TASK-28
+**Wave 22** — TASK-29
+**Wave 23** — TASK-30
+**Wave 24** — TASK-31
 
 TASK-09 and TASK-10 both modify `ui-vuejs/src/components/RegexTester.vue`, so they must run in
 **different waves** even though their concerns are otherwise disjoint. TASK-12 documents the telemetry
@@ -134,6 +154,24 @@ Each task owns a disjoint set of paths so parallel execution cannot conflict.
 | TASK-22 | `docs/design/api-dotnet.md`, `docs/design/api-nodejs.md`, `docs/design/api-python.md`, `docs/design/api-java.md`, `api-*/ARCHITECTURE.md`, `docs/open-api/*.v1.json` |
 | TASK-23 | `ui-vuejs/src/components/RegexTester.vue` |
 | TASK-24 | `tests/contract/src/specs/capabilities.spec.js`, `docs/design/ui-vuejs.md`, `ARCHITECTURE.md`, `DEPLOYMENT.md`, `CLAUDE.md`, `docs/tasks/README.md` |
+| TASK-25 | `docs/design/api-contract.md` |
+| TASK-26 | `api-dotnet/Startup.cs`, `api-dotnet/Services/TelemetryService.cs`, `api-nodejs/src/index.js`, `api-nodejs/src/services/telemetryService.js`, `api-python/src/services/telemetry_service.py`, `api-java/src/main/java/io/github/regextester/api/service/TelemetryService.java` |
+| TASK-27 | `api-*/ARCHITECTURE.md`, `ARCHITECTURE.md`, `DEPLOYMENT.md`, `docs/tasks/README.md` |
+| TASK-28 | `api-dotnet/Services/TelemetryService.cs`, `api-dotnet/Startup.cs`, `api-dotnet/appsettings*.json`, `api-nodejs/src/index.js`, `api-nodejs/src/services/telemetryService.js`, `api-nodejs/package.json`, `api-python/src/services/telemetry_service.py`, `api-python/src/main.py`, `api-python/.env.example`, `api-python/requirements.txt`, `api-java/src/main/java/io/github/regextester/api/service/TelemetryService.java`, `api-java/pom.xml` |
+| TASK-29 | Azure resources, `DEPLOYMENT.md`, `ARCHITECTURE.md`, `api-*/ARCHITECTURE.md`, `CLAUDE.md`, `.github/skills/*/references/conventions.md`, `docs/tasks/README.md` |
+| TASK-30 | `api-java/pom.xml`, `api-java/src/**` (all Java sources and resources), `docs/open-api/api-java.v1.json` |
+| TASK-31 | `api-java/ARCHITECTURE.md`, `api-java/.gitignore`, `docs/design/api-java.md`, `docs/design/api-python.md`, `docs/open-api/README.md`, `ARCHITECTURE.md`, `README.md`, `CLAUDE.md`, `DEPLOYMENT.md`, `.github/skills/*/references/repo-map.md`, `docs/tasks/README.md` |
+
+TASK-25 → TASK-26 → TASK-27 is strictly sequential: the contract rule first (or the engines drift),
+then the four implementations, then the prose that describes them. TASK-26 owns backend *source*;
+TASK-27 owns every `ARCHITECTURE.md`, so their paths stay disjoint. Neither touches
+`docs/open-api/**` — the change is invisible over HTTP, so no schema and no generated snapshot moves.
 
 TASK-01 and TASK-04 both touch `api-dotnet/` and the generated OpenAPI JSON, so they run in **different
 waves**. TASK-01 changes only XML doc comment prose; TASK-04 regenerates the OpenAPI JSON afterwards.
+
+TASK-30 follows TASK-28 because the framework swap has to carry the managed-identity telemetry
+wiring forward; doing it first would mean writing that code twice. TASK-30 owns `api-java` source and
+the generated snapshot, TASK-31 owns every document, so they run in different waves and touch
+disjoint paths. Neither changes the contract, `tests/contract/**` or any other backend \u2014 all 42
+conformance tests must pass unchanged, which is what makes the swap verifiable at all.

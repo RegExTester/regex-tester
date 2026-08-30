@@ -4,7 +4,7 @@
 
 ## 1. Overview
 
-Spring Boot backend for the RegEx Tester application. Implements the [canonical v1 API
+Javalin backend for the RegEx Tester application. Implements the [canonical v1 API
 contract](api-contract.md) using only the JDK's built-in `java.util.regex` package (no third-party
 regex library), providing the same endpoints and response shapes as `api-dotnet`, `api-nodejs` and
 `api-python`.
@@ -12,38 +12,36 @@ regex library), providing the same endpoints and response shapes as `api-dotnet`
 ## 2. Technology Stack
 
 - **Runtime**: Java 21 (LTS) — Java 20 is the effective floor, see §5
-- **Framework**: Spring Boot 3.4 (Spring MVC on embedded Tomcat 10.1)
-- **Build**: Maven, producing an executable `target/app.jar`
-- **API Docs**: springdoc-openapi (Swagger UI), served on the contract's routes
-- **Dependencies**: `spring-boot-starter-web`, `spring-boot-starter-validation`,
-  `springdoc-openapi-starter-webmvc-ui`, `azure-cosmos` (see `pom.xml`)
+- **Framework**: Javalin 6.7 (embedded Jetty 11, no DI container)
+- **Build**: Maven with `maven-shade-plugin`, producing an executable `target/app.jar`
+- **API Docs**: javalin-openapi (Swagger UI), generated at compile time, served on the contract's routes
+- **Dependencies**: `javalin`, `javalin-openapi-plugin`, `javalin-swagger-plugin`,
+  `jackson-databind`, `slf4j-simple`, `azure-cosmos`, `azure-identity` (see `pom.xml`)
+
+Javalin replaced Spring Boot in 2026-08 solely to cut startup time (2.31 s → 0.70 s) on an F1 App
+Service plan that cannot enable Always On. The contract did not change; see
+[docs/plan/2026-08-30-api-java-javalin.md](../plan/2026-08-30-api-java-javalin.md).
 
 ## 3. Project Structure
 
 ```
 api-java/
 ├── src/main/java/io/github/regextester/api/
-│   ├── Application.java                  # Spring Boot entry point
-│   ├── config/
-│   │   ├── CorsConfig.java               # CorsFilter registered ahead of the DispatcherServlet
-│   │   └── OpenApiConfig.java            # OpenAPI document metadata
-│   ├── controller/
-│   │   ├── HomeController.java           # GET / (redirect), GET /api/capabilities
-│   │   ├── RegexController.java          # POST /api/regex
-│   │   └── ApiExceptionHandler.java      # 400 / 413 / async-timeout -> contract responses
-│   ├── filter/
-│   │   └── MaxBodySizeFilter.java        # Enforces maxRequestBodyBytes (8192) -> HTTP 413
-│   ├── model/                            # Records mirroring the v1 contract schemas
+│   ├── App.java                           # Entry point: routes, CORS, validation, timeout, 413 mapping
+│   ├── model/                             # Records mirroring the v1 contract schemas
 │   ├── options/
-│   │   └── RegexOptions.java             # Option flag registry and bitmask -> Pattern flags
+│   │   └── RegexOptions.java              # Option flag registry and bitmask -> Pattern flags
 │   └── service/
-│       ├── RegexProcessor.java           # Core java.util.regex matching/replace engine, 15s deadline
-│       ├── CapabilitiesService.java      # Builds the GET /api/capabilities response body
-│       ├── TimeLimitedCharSequence.java  # Deadline-enforcing CharSequence backing the 15s timeout
-│       └── TelemetryService.java         # Cosmos DB telemetry, standardized across all four backends (see §12)
-├── src/main/resources/application.properties
+│       ├── RegexProcessor.java            # Core java.util.regex matching/replace engine, 15s deadline
+│       ├── CapabilitiesService.java       # Builds the GET /api/capabilities response body
+│       ├── TimeLimitedCharSequence.java   # Deadline-enforcing CharSequence backing the 15s timeout
+│       └── TelemetryService.java          # Cosmos DB telemetry, standardized across all four backends (see §12)
+├── src/main/resources/simplelogger.properties
 └── pom.xml
 ```
+
+Without a DI container there are no `controller/`, `config/` or `filter/` packages — every HTTP
+concern lives in `App`, and the services are plain objects it constructs.
 
 ## 4. API Endpoints
 
@@ -94,9 +92,10 @@ An invalid pattern or a 15-second timeout returns HTTP 200 with `error` populate
 
 ### GET /openapi/v1.json and GET /scalar/v1
 
-springdoc-openapi generates the document from the controller annotations and model records;
-`application.properties` sets `springdoc.api-docs.path=/openapi/v1.json` and
-`springdoc.swagger-ui.path=/scalar/v1`.
+The `javalin-openapi` annotation processor generates the document from the `@OpenApi` annotations on
+`App`'s handlers and the model records **at compile time**, so it cannot drift from the code and
+costs nothing at startup. `OpenApiPlugin` serves it at `/openapi/v1.json` and `SwaggerPlugin` mounts
+the UI at `/scalar/v1`.
 
 ## 5. Core Service: RegexProcessor
 
@@ -167,11 +166,10 @@ and `REGISTRY`); unsupported/unknown bits are masked out and silently ignored ra
 
 ## 7. Request Timeout
 
-- **HTTP timeout**: 5 seconds, via `spring.mvc.async.request-timeout=5000` applied to the
-  `Callable` returned by `RegexController`. On expiry Spring raises `AsyncRequestTimeoutException`,
-  which `ApiExceptionHandler` converts into HTTP 200 with
+- **HTTP timeout**: 5 seconds. `App` submits the match to a cached daemon pool and bounds it with
+  `Future.get(5, SECONDS)`. On expiry the task is cancelled and the response is HTTP 200 with
   `{ "error": "The request timed out (exceeded 5 seconds).", "replace": null, "matches": [] }` —
-  never HTTP 408, and never Spring's default 503.
+  never HTTP 408.
 - **Regex timeout**: 15 seconds. `java.util.regex` has no native timeout and `Thread.stop()` was
   removed in Java 20, so the input is wrapped in a `TimeLimitedCharSequence` that checks a
   `System.nanoTime()` deadline every 1024 `charAt()` calls. Because the matcher must read characters
@@ -180,22 +178,22 @@ and `REGISTRY`); unsupported/unknown bits are masked out and silently ignored ra
 
 ## 8. Validation
 
-- `pattern` ≤ 512 characters, `text` ≤ 1024 characters, `replace` ≤ 1024 characters
-  (`jakarta.validation` `@Size(max = ...)` on the `Input` record); `options` defaults to `0`.
-- A field-level violation raises `MethodArgumentNotValidException`, converted by
-  `ApiExceptionHandler` into an HTTP 400 RFC 9457 `ProblemDetails` body with
-  `errors: { field: string[] }`.
-- Independently of field-level validation, `MaxBodySizeFilter` rejects any raw request body over
-  `maxRequestBodyBytes` (8192 bytes) with HTTP 413 and a `ProblemDetails` JSON body, checked before
-  the body is parsed — so an oversized body is always reported as 413, never 400, per
-  `docs/design/api-contract.md` §4/§5. Being a servlet filter it runs ahead of the
-  `DispatcherServlet`, and it counts bytes as they stream in, so it also catches a body whose
-  declared (or absent) `Content-Length` understates its actual size.
+- `pattern` ≤ 512 characters, `text` ≤ 1024 characters, `replace` ≤ 1024 characters, checked
+  explicitly in `App.validate`; `options` defaults to `0`. The `Input` record carries
+  `@OpenApiStringValidation` for the same limits, but that is documentation only — it feeds the
+  OpenAPI document and enforces nothing.
+- A violation produces an HTTP 400 RFC 9457 `ProblemDetails` body with `errors: { field: string[] }`
+  — an array per field, even though only one message per field is possible, because the contract
+  requires that shape on every engine.
+- Independently of field-level validation, Jetty's `maxRequestSize` (8192 bytes) rejects any
+  oversized raw request body while it is being read, and `app.error(413, ...)` renders it as a
+  `ProblemDetails` JSON body. Because the limit applies during the read, an oversized body is always
+  reported as 413 and never 400, per `docs/design/api-contract.md` §4/§5 — including when one of its
+  fields would also have failed its `maxLength` check.
 
 ## 9. CORS Configuration
 
-Configured in `config/CorsConfig.java` as a `CorsFilter` registered at highest precedence (so that
-even a 413 produced by `MaxBodySizeFilter` still carries CORS headers):
+Applied in a Javalin `before` handler in `App`, so that even a 413 still carries CORS headers:
 
 | Environment | Allowed origins |
 |---|---|
@@ -208,18 +206,20 @@ No environment ever emits a wildcard `Access-Control-Allow-Origin: *`, per
 
 ## 10. OpenAPI Documentation
 
-springdoc-openapi introspects the Spring MVC handler methods and the model records to generate the
-document at runtime; `OpenApiConfig` supplies the title/description/version, and
-`application.properties` maps the document and UI onto the contract's routes.
+The `javalin-openapi` annotation processor reads the `@OpenApi` annotations on `App`'s handlers and
+the model records during compilation and emits the document into the jar; `OpenApiPlugin` and
+`SwaggerPlugin` then serve it and the explorer on the contract's routes. Generating at compile time
+rather than by runtime introspection is what keeps the document from drifting while costing no
+startup time.
 
 ## 11. Configuration (environment variables)
 
 | Variable | Default | Description |
 |---|---|---|
-| `PORT` | 5300 | HTTP listen port (`server.port=${PORT:5300}`) |
+| `PORT` | 5300 | HTTP listen port |
 | `ENVIRONMENT` | `development` | `production` restricts CORS to the allow-list only (see §9); **must be set as an App Service app setting during provisioning — no deploy workflow sets it** — so an instance without it leaves the local-dev CORS behaviour active |
 | `ALLOW_CORS` | *(empty)* | Comma-separated extra allowed CORS origins |
-| `COSMOS_CONNECTION_STRING` | *(empty)* | Enables telemetry when set; empty disables it silently |
+| `COSMOS_ENDPOINT` | *(empty)* | Cosmos account URI; enables telemetry when set, empty disables it silently. Authenticated with Entra ID via `DefaultAzureCredential` — not a key |
 | `COSMOS_DATABASE` | `regex-tester-db` | Telemetry database name |
 | `COSMOS_CONTAINER` | `telemetry` | Telemetry container name |
 
@@ -233,7 +233,7 @@ document at runtime; `OpenApiConfig` supplies the title/description/version, and
 | `features.captures` | `"multi"` — `Group.Captures` retains every capture of a repeated group | `"single"` | `"single"` | `"single"` — `Matcher` only exposes the last capture per group, so `ShowCaptures` yields a single-element `captures` array |
 | Regex timeout enforcement | Native `Regex` timeout | Between-match deadline check | Between-match deadline check | Deadline-checking `CharSequence` — preempts mid-match, unlike the two engines above |
 | Telemetry | Azure Cosmos DB | Azure Cosmos DB | Azure Cosmos DB | Azure Cosmos DB — standardized 12-field document, same `/timestamp` partition key, fire-and-forget on a daemon executor (see `TelemetryService.java`) |
-| OpenAPI generation | Built-in ASP.NET OpenApi | Custom JSDoc parser | Built-in FastAPI/Pydantic generation | springdoc-openapi introspection |
+| OpenAPI generation | Built-in ASP.NET OpenApi | Custom JSDoc parser | Built-in FastAPI/Pydantic generation | javalin-openapi annotation processor, at compile time |
 | Named group syntax | `(?<name>...)` native | `(?<name>...)` native | Translated to `(?P<name>...)` | `(?<name>...)` native, but names are restricted to `[a-zA-Z][a-zA-Z0-9]*` |
 | Unicode/Ascii flags | Neither | `Unicode` (`u` flag) | `Ascii` only | `Unicode` only |
 

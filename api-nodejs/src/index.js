@@ -44,12 +44,13 @@ app.get('/', homeController.redirect);
 app.get('/api/capabilities', homeController.capabilities);
 app.post('/api/regex', regexController.match);
 
-// Initialize telemetry (optional — no-op if env vars are missing)
-telemetryService.initCosmos(
-  process.env.COSMOS_CONNECTION_STRING,
+// Initialize telemetry (optional — no-op if env vars are missing). Awaited so the Cosmos client is
+// ready before the first request arrives; initCosmos never rejects, so this cannot abort startup.
+await telemetryService.initCosmos(
+  process.env.COSMOS_ENDPOINT,
   process.env.COSMOS_DATABASE || 'regex-tester-db',
   process.env.COSMOS_CONTAINER || 'telemetry',
-).catch(err => console.warn('Cosmos DB init failed:', err.message));
+);
 
 // Must be registered after all routes/middleware so it catches errors raised earlier in the
 // stack (notably body-parser's PayloadTooLargeError/SyntaxError from express.json() above).

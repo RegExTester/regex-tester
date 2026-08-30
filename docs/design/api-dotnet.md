@@ -135,7 +135,7 @@ body, before the body is parsed or any field is validated.
 |---------|-----|------------|
 | AllowedHosts | localhost | regex-tester-api-dotnet.azurewebsites.net |
 | AllowCors | `["https://regextester.github.io"]` | `["https://regextester.github.io"]` |
-| Cosmos:ConnectionString | (empty) | (set via Azure config) |
+| Cosmos:Endpoint | (empty) | (set via Azure config; authenticated with managed identity, not a key) |
 | Cosmos:Database | regex-tester-db | regex-tester-db |
 | Cosmos:Container | telemetry | telemetry |
 

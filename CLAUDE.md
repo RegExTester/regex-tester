@@ -13,7 +13,7 @@ RegEx Tester is a mono-repo containing one frontend SPA and four backend APIs th
 | **api-dotnet** | .NET 10.0 Web API | `api-dotnet/` |
 | **api-nodejs** | Node.js 22+ / Express 5 | `api-nodejs/` |
 | **api-python** | Python 3.13 / FastAPI | `api-python/` |
-| **api-java** | Java 21 / Spring Boot 3.4 | `api-java/` |
+| **api-java** | Java 21 / Javalin 6.7 | `api-java/` |
 | **ui-vuejs** | Vue 3 / Vite 6 SPA | `ui-vuejs/` |
 
 The Vue.js frontend supports switching between all four backends at runtime via an engine dropdown, driven by each backend's `GET /api/capabilities` response.
@@ -52,8 +52,7 @@ python -m uvicorn src.main:app --reload --port 5200  # Dev server with reload
 
 ```bash
 mvn package -DskipTests        # Build; produces target/app.jar
-java -jar target/app.jar       # Server at http://localhost:5300
-mvn spring-boot:run            # Dev server
+java -jar target/app.jar       # Server at http://localhost:5300 (also the dev server)
 ```
 
 ### ui-vuejs
@@ -141,18 +140,17 @@ warm-up call for a cold App Service instance) and applies a 15 s timeout to ever
 
 ### api-java Key Files
 
-- `src/main/java/io/github/regextester/api/Application.java` — Spring Boot entry point
-- `src/main/java/io/github/regextester/api/controller/RegexController.java` — POST /api/regex, returns a `Callable` so the 5s async timeout applies
-- `src/main/java/io/github/regextester/api/controller/HomeController.java` — GET / (302), GET /api/capabilities (24h cache)
-- `src/main/java/io/github/regextester/api/controller/ApiExceptionHandler.java` — 400 validation, 413 body-too-large, 200-on-async-timeout
+- `src/main/java/io/github/regextester/api/App.java` — entry point: routes, CORS (`before` handler, never `*`), explicit length validation, 5s timeout via `Future.get` (200 response, not 408), 413 mapping, OpenAPI/Swagger at `/openapi/v1.json` + `/scalar/v1`, telemetry lifecycle
 - `src/main/java/io/github/regextester/api/service/RegexProcessor.java` — `java.util.regex` engine, 15s deadline
 - `src/main/java/io/github/regextester/api/service/TimeLimitedCharSequence.java` — deadline-checking `CharSequence` that preempts a runaway match mid-scan
 - `src/main/java/io/github/regextester/api/service/CapabilitiesService.java` — GET /api/capabilities option registry and limits
 - `src/main/java/io/github/regextester/api/options/RegexOptions.java` — bitmask -> `Pattern` flag mapping and the shared option registry
-- `src/main/java/io/github/regextester/api/filter/MaxBodySizeFilter.java` — enforces `maxRequestBodyBytes` (8192) -> HTTP 413 before parsing
-- `src/main/java/io/github/regextester/api/config/CorsConfig.java` — highest-precedence CORS filter, never `*`
-- `src/main/resources/application.properties` — port 5300, 5s async timeout, springdoc paths
+- `src/main/resources/simplelogger.properties` — routes slf4j-simple to stdout (it defaults to stderr, which App Service reads as errors)
 - `pom.xml` — `<finalName>app</finalName>` so App Service's default `java -jar app.jar` works unchanged
+
+There is no DI container: every HTTP concern lives in `App`, and the services are plain objects.
+Javalin enforces the 8192-byte body limit *during* the body read, so the `bodyAsClass` catch must
+rethrow `HttpResponseException` or a 413 silently becomes a 400.
 
 ### ui-vuejs Key Files
 
@@ -217,7 +215,7 @@ with `str` patterns at all, and the latter only writes to server stdout. See
 - **api-python**: Azure App Service (app `regex-tester-api-python`, host `regex-tester-api-python-c9apa4ekfta6hac6.centralus-01.azurewebsites.net`)
 - **api-java**: Azure App Service (app `regex-tester-api-java`, host `regex-tester-api-java-addef8dcgjbqa6bc.centralus-01.azurewebsites.net`)
 - **Frontend**: GitHub Pages (`https://regextester.github.io/`)
-- **Telemetry**: Azure Cosmos DB (all four backends, optional — disabled when the connection string is empty)
+- **Telemetry**: Azure Cosmos DB (all four backends, optional — disabled when the endpoint setting is empty). Authenticated with Entra ID via `DefaultAzureCredential` and a system-assigned managed identity; there is no account key or connection string anywhere.
 
 ### Testing
 

@@ -207,7 +207,7 @@ FastAPI auto-generates the OpenAPI document from the Pydantic models and route d
 | Regex engine | `System.Text.RegularExpressions` | JavaScript `RegExp` | stdlib `re` | `java.util.regex` |
 | `features.captures` | `"multi"` — `Group.Captures` retains every capture of a repeated group | `"single"` — only the last capture per group is exposed | `"single"` — `Match.groups()` only exposes the last capture per group, so `ShowCaptures` yields a single-element `captures` array | `"single"` — `Matcher` only exposes the last capture per group |
 | Telemetry | Azure Cosmos DB | Azure Cosmos DB | Azure Cosmos DB — standardized 12-field document, same `/timestamp` partition key, fire-and-forget via FastAPI `BackgroundTasks` (see `telemetry_service.py`) | Azure Cosmos DB — same document, fire-and-forget on a single daemon thread |
-| OpenAPI generation | Built-in ASP.NET OpenApi | Custom JSDoc parser | Built-in FastAPI/Pydantic generation | springdoc-openapi |
+| OpenAPI generation | Built-in ASP.NET OpenApi | Custom JSDoc parser | Built-in FastAPI/Pydantic generation | javalin-openapi |
 | Named group syntax | `(?<name>...)` native | `(?<name>...)` native | Translated from `(?<name>...)` to `(?P<name>...)` before compiling | `(?<name>...)` native, but names restricted to `[a-zA-Z][a-zA-Z0-9]*` |
 | Unicode vs Ascii | neither bit supported | `Unicode` (`u` flag) | `Ascii` (`re.ASCII`) — Unicode is the default | `Unicode` (`UNICODE_CHARACTER_CLASS`) — ASCII is the default |
 

@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@azure/cosmos": "^4.9.2",
+    "@azure/identity": "^4.13.2",
     "cors": "^2.8.5",
     "express": "^5.1.0",
     "js-yaml": "^4.1.1",

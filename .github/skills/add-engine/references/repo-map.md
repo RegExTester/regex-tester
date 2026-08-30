@@ -7,7 +7,7 @@
 | api-dotnet | .NET 10.0 Web API | `api-dotnet/` | 5000 (5001 https) | `DOTNET` |
 | api-nodejs | Node.js 22 / Express 5 | `api-nodejs/` | 5100 | `NODEJS` |
 | api-python | Python 3.13 / FastAPI | `api-python/` | 5200 | `PYTHON` |
-| api-java | Java 21 / Spring Boot 3.4 | `api-java/` | 5300 | `JAVA` |
+| api-java | Java 21 / Javalin 6.7 | `api-java/` | 5300 | `JAVA` |
 | ui-vuejs | Vue 3 / Vite 6 SPA | `ui-vuejs/` | **4000** | — |
 
 Next free backend port for a new engine: **5400**.
@@ -46,14 +46,13 @@ Next free backend port for a new engine: **5400**.
 - `src/middleware/request_timeout.py`, `src/middleware/max_body_size.py`
 
 **api-java** (package root `src/main/java/io/github/regextester/api/`)
-- `controller/RegexController.java` — returns a `Callable` so Spring's 5 s async timeout applies
-- `controller/HomeController.java`, `controller/ApiExceptionHandler.java` (400 / 413 / 200-on-timeout)
+- `App.java` — **all** HTTP concerns: routes, CORS, validation, 5 s `Future.get` timeout, 413 mapping, OpenAPI. No DI container
 - `service/RegexProcessor.java` — `java.util.regex`, 15 s deadline
 - `service/TimeLimitedCharSequence.java` — deadline-checking `CharSequence`, preempts mid-match
 - `service/CapabilitiesService.java` (`ENGINE_KEY`), `service/TelemetryService.java`
 - `options/RegexOptions.java` — bitmask → `Pattern` flags + option registry
-- `filter/MaxBodySizeFilter.java`, `config/CorsConfig.java`
-- `src/main/resources/application.properties`, `pom.xml` (`<finalName>app</finalName>`)
+- `src/main/resources/simplelogger.properties`, `pom.xml` (`<finalName>app</finalName>`)
+- Gotcha: rethrow `HttpResponseException` from the `bodyAsClass` catch, or the 413 becomes a 400
 
 **ui-vuejs**
 - `src/components/RegexTester.vue` — main component, engine switching, capability-driven options

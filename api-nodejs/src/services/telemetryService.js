@@ -1,27 +1,71 @@
 import { CosmosClient } from '@azure/cosmos';
+import { DefaultAzureCredential } from '@azure/identity';
 import { randomUUID } from 'crypto';
 import { ENGINE_KEY } from './capabilities.js';
 
 let cosmosClient = null;
 let cosmosContainer = null;
 
-async function initCosmos(connectionString, database, container) {
-  if (!connectionString || cosmosClient) return;
+// Upper bound on initialization. Init is awaited before the server listens, so an unreachable
+// endpoint would otherwise hang startup and turn a telemetry outage into a total outage.
+const INIT_TIMEOUT_MS = 10_000;
 
-  cosmosClient = new CosmosClient(connectionString);
-  const { database: db } = await cosmosClient.databases.createIfNotExists({
-    id: database,
-    throughput: 400,
+/**
+ * Establishes the Cosmos client, database and container. Awaited on the startup path, before the
+ * server accepts connections, so the very first request is recorded rather than silently dropped.
+ *
+ * Authenticates with Entra ID, never an account key: `DefaultAzureCredential` resolves the App
+ * Service managed identity in Azure and the developer's `az login` session locally. A rotated key
+ * silently disabled telemetry for five weeks in 2026-07; there is now no key.
+ *
+ * Never rejects: telemetry is non-essential, and a rejection escaping an awaited top-level call
+ * would abort the whole process on startup. A bad or unreachable endpoint, a missing role
+ * assignment or an unavailable credential is logged and leaves telemetry disabled for the lifetime
+ * of the process.
+ *
+ * Resolves after at most `INIT_TIMEOUT_MS` even if Cosmos has not answered. The SDK ignores
+ * `abortSignal` in the `RequestOptions` of its calls — measured against a blackholed address, it
+ * still ran to the OS connect timeout of ~21 s — so the bound has to be enforced here. A connection
+ * that completes after the bound still publishes its client: it is perfectly usable, it just missed
+ * the startup window.
+ */
+async function initCosmos(endpoint, database, container) {
+  if (!endpoint || cosmosClient) return;
+
+  const connect = (async () => {
+    try {
+      const client = new CosmosClient({ endpoint, aadCredentials: new DefaultAzureCredential() });
+      const cont = client.database(database).container(container);
+
+      // database()/container() only build client-side handles, so without this read the first
+      // token acquisition — and any 403 from a missing role assignment — would be deferred to the
+      // first write and lost in its catch. One metadata round trip here proves the identity can
+      // reach the container, and is covered by the readMetadata action of Cosmos DB Built-in Data
+      // Contributor. It replaces the two createIfNotExists calls, which that role deliberately
+      // cannot perform: creating a database or container is a control-plane operation. The
+      // container is provisioned by DEPLOYMENT.md §2 and must already exist, partitioned on
+      // /timestamp.
+      await cont.read();
+
+      // Published only once the round trip succeeded, so a partially initialized client is never
+      // visible to sendTelemetry.
+      cosmosClient = client;
+      cosmosContainer = cont;
+    } catch (err) {
+      console.warn('Cosmos DB telemetry initialization failed; telemetry is disabled:', err.message);
+    }
+  })();
+
+  let timer;
+  const bound = new Promise(resolve => {
+    timer = setTimeout(() => {
+      console.warn(`Cosmos DB telemetry initialization exceeded ${INIT_TIMEOUT_MS} ms; starting without it.`);
+      resolve();
+    }, INIT_TIMEOUT_MS);
   });
-  const { container: cont } = await db.containers.createIfNotExists({
-    id: container,
-    // Partitioned on /timestamp, which is effectively unique per document: writes spread evenly
-    // and this matches containers created before telemetry was standardized. Cosmos cannot change
-    // an existing container's partition key and createIfNotExists silently returns the existing
-    // one, so switching this path would require operators to delete and recreate the container.
-    partitionKey: { paths: ['/timestamp'] },
-  });
-  cosmosContainer = cont;
+
+  await Promise.race([connect, bound]);
+  clearTimeout(timer);
 }
 
 /**

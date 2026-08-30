@@ -80,21 +80,61 @@ az cosmosdb sql container create --account-name regex-tester-cosmos \
 ```
 
 > **Partition key.** The telemetry container is partitioned on `/timestamp`, which is effectively
-> unique per document, so writes spread evenly across logical partitions. All four backends call
-> `CreateContainerIfNotExists` at startup, which **silently returns an existing container as-is** —
-> Cosmos cannot change a container's partition key after creation. `/timestamp` is deliberately the
-> same key the container has always used, so an existing deployment needs **no action**: do not
-> delete or recreate anything.
+> unique per document, so writes spread evenly across logical partitions. Cosmos cannot change a
+> container's partition key after creation, and `/timestamp` is the key the container has always
+> used, so an existing deployment needs **no action**: do not delete or recreate anything.
 >
 > The only exception is a container that was manually recreated on `/engineKey` while that key was
 > briefly specified. If you have one, recreate it on `/timestamp` — note this destroys existing
 > telemetry, which is why the key was reverted.
 
-Retrieve the connection string for the app settings step below:
+> **This step is mandatory, not a convenience.** The backends no longer create the database or
+> container. They authenticate with Entra ID (§3), and the *Cosmos DB Built-in Data Contributor*
+> data-plane role deliberately grants no permission to create either — that is a control-plane
+> operation. A backend pointed at a container that does not exist logs a warning at startup and
+> runs with telemetry disabled.
+
+### Managed identity and Cosmos access
+
+Telemetry authenticates with **Entra ID, not an account key**. There is no connection string and no
+secret in any app setting. This is deliberate: a rotated account key silently disabled telemetry
+across all four backends for five weeks in 2026-07 (§9).
+
+Enable a system-assigned identity on each web app and grant it the data-plane role:
 
 ```bash
-az cosmosdb keys list --name regex-tester-cosmos --resource-group regex-tester \
-  --type connection-strings
+for app in regex-tester-api-dotnet regex-tester-api-nodejs \
+           regex-tester-api-python regex-tester-api-java; do
+  principal=$(az webapp identity assign --name "$app" --resource-group regex-tester \
+    --query principalId -o tsv)
+
+  # Cosmos DB Built-in Data Contributor. Data plane only: read metadata, and read/write items.
+  # It cannot create databases or containers -- hence the mandatory provisioning in section 2.
+  az cosmosdb sql role assignment create --account-name regex-tester-cosmos \
+    --resource-group regex-tester --scope "/" --principal-id "$principal" \
+    --role-definition-id 00000000-0000-0000-0000-000000000002
+done
+```
+
+Grant yourself the same role to write telemetry from a local run — `DefaultAzureCredential` falls
+back to your `az login` session:
+
+```bash
+az cosmosdb sql role assignment create --account-name regex-tester-cosmos \
+  --resource-group regex-tester --scope "/" \
+  --principal-id "$(az ad signed-in-user show --query id -o tsv)" \
+  --role-definition-id 00000000-0000-0000-0000-000000000002
+```
+
+> Locally, `DefaultAzureCredential` finds your session by shelling out to `az`, so the Azure CLI must
+> be **on `PATH` of the process running the backend**. A backend started from a shell without it
+> reports `Azure CLI could not be found` and starts with telemetry disabled.
+
+Role assignments take up to a minute each to propagate. Verify:
+
+```bash
+az cosmosdb sql role assignment list --account-name regex-tester-cosmos \
+  --resource-group regex-tester -o table
 ```
 
 ## 3. App settings per web app
@@ -102,22 +142,27 @@ az cosmosdb keys list --name regex-tester-cosmos --resource-group regex-tester \
 | App | Setting | Value | Notes |
 |---|---|---|---|
 | all four | `ALLOW_CORS` / `AllowCors` | *(empty, or extra comma-separated origins)* | `https://regextester.github.io` and `localhost` are always allowed in code; this adds more |
-| api-dotnet | `Cosmos__ConnectionString` | `<your-cosmos-connection-string>` | App Service flattens nested config keys with `__` |
+| api-dotnet | `Cosmos__Endpoint` | `https://regex-tester-cosmos.documents.azure.com:443/` | Not a secret. App Service flattens nested config keys with `__` |
 | api-dotnet | `Cosmos__Database` | `regex-tester-db` | |
 | api-dotnet | `Cosmos__Container` | `telemetry` | |
-| api-nodejs | `COSMOS_CONNECTION_STRING` | `<your-cosmos-connection-string>` | |
+| api-nodejs | `COSMOS_ENDPOINT` | `https://regex-tester-cosmos.documents.azure.com:443/` | |
 | api-nodejs | `COSMOS_DATABASE` | `regex-tester-db` | defaults to this value if unset |
 | api-nodejs | `COSMOS_CONTAINER` | `telemetry` | defaults to this value if unset |
 | api-nodejs | `PORT` | *(leave unset)* | App Service injects its own `PORT`; code defaults to 5100 only for local dev |
-| api-python | `COSMOS_CONNECTION_STRING` | `<your-cosmos-connection-string>` | |
+| api-python | `COSMOS_ENDPOINT` | `https://regex-tester-cosmos.documents.azure.com:443/` | |
 | api-python | `COSMOS_DATABASE` | `regex-tester-db` | |
 | api-python | `COSMOS_CONTAINER` | `telemetry` | |
 | api-python | `ENVIRONMENT` | `production` | **required** — see warning below |
-| api-java | `COSMOS_CONNECTION_STRING` | `<your-cosmos-connection-string>` | |
+| api-java | `COSMOS_ENDPOINT` | `https://regex-tester-cosmos.documents.azure.com:443/` | |
 | api-java | `COSMOS_DATABASE` | `regex-tester-db` | defaults to this value if unset |
 | api-java | `COSMOS_CONTAINER` | `telemetry` | defaults to this value if unset |
 | api-java | `ENVIRONMENT` | `production` | **required** — see warning below |
 | api-java | `PORT` | *(leave unset)* | App Service injects its own `PORT`; code defaults to 5300 only for local dev |
+
+> An empty or absent endpoint setting disables telemetry silently, which is the intended
+> local-development and CI state. There is deliberately **no** `COSMOS_CONNECTION_STRING` /
+> `Cosmos__ConnectionString` setting any more; if you find one on a web app it is a leftover and
+> should be deleted.
 
 > **`ENVIRONMENT` warning.** `api-python` and `api-java` both default `ENVIRONMENT` to `development`
 > when the setting is absent. In development mode they open CORS to any `http(s)://localhost[:port]`
@@ -138,13 +183,15 @@ az cosmosdb keys list --name regex-tester-cosmos --resource-group regex-tester \
 Example of setting app settings directly:
 
 ```bash
+COSMOS_ENDPOINT="https://regex-tester-cosmos.documents.azure.com:443/"
+
 az webapp config appsettings set --name regex-tester-api-dotnet --resource-group regex-tester \
-  --settings Cosmos__ConnectionString="<your-cosmos-connection-string>" \
+  --settings Cosmos__Endpoint="$COSMOS_ENDPOINT" \
              Cosmos__Database="regex-tester-db" Cosmos__Container="telemetry"
 
 az webapp config appsettings set --name regex-tester-api-python --resource-group regex-tester \
   --settings ENVIRONMENT=production \
-             COSMOS_CONNECTION_STRING="<your-cosmos-connection-string>" \
+             COSMOS_ENDPOINT="$COSMOS_ENDPOINT" \
              COSMOS_DATABASE="regex-tester-db" COSMOS_CONTAINER="telemetry"
 ```
 
@@ -333,8 +380,23 @@ and confirm each returns matches without a CORS error in the browser console.
   backend's own "request timed out" body (still HTTP 200) rather than a network error. The frontend
   no longer cancels the warm-up call — `GET /api/capabilities` is issued with no client timeout, so
   the engine indicator waits for a cold instance instead of flipping to `offline` — but that only
-  hides the symptom. The fix is the **Always On** setting (requires a plan tier that supports it;
-  `S1` does) or a warm-up ping.
+  hides the symptom.
+
+  **This deployment runs on `F1` (Free) plans, which do not support Always On at all**, so every app
+  unloads after roughly 20 minutes idle and every subsequent visit pays a full cold start. F1 also
+  throttles CPU against a daily quota, which hits JVM startup hardest. Replacing Spring Boot with
+  Javalin (TASK-30) cut api-java's baseline from 2.31 s to 0.70 s, putting all four engines within
+  the same band (measured locally: 0.5 s for .NET, 0.7 s for Java, 0.9 s for Python, 1.1 s for
+  Node). Cold starts remain, but no single engine is now the outlier. The options are:
+
+  - Move the plan to **`B1`**, the cheapest tier that supports Always On, and enable it. This
+    removes cold starts entirely and is the only complete fix.
+  - Stay on F1 and keep the apps warm with an external scheduled ping (for example a
+    `schedule:`-triggered GitHub Actions workflow hitting `/api/capabilities` every ~10 minutes).
+    Free, and negligible against the CPU quota.
+
+  Do not follow older advice suggesting `Always On` is available here — on F1 the setting cannot be
+  turned on.
 - **api-python startup command**: if the app returns App Service's default "Application Error"
   page, re-check the startup command with
   `az webapp config show --name regex-tester-api-python --resource-group regex-tester --query linuxFxVersion`
@@ -344,23 +406,60 @@ and confirm each returns matches without a CORS error in the browser console.
   If the deployed artifact is named anything else (e.g. `regex-tester-api-java-1.0.0.jar`), the
   container has nothing to start. Confirm `<finalName>app</finalName>` is still in `api-java/pom.xml`
   and that `deploy-api-java.yml` uploads `api-java/target/app.jar`.
-- **Telemetry silently absent**: an empty `COSMOS_CONNECTION_STRING` / `Cosmos__ConnectionString`
-  disables telemetry with no error anywhere (by design, so a Cosmos outage or missing config never
-  breaks the API). If telemetry documents aren't appearing, first confirm the setting is actually
-  populated, then confirm the container's partition key is `/timestamp` (§2).
+- **Telemetry silently absent**: an empty or absent `COSMOS_ENDPOINT` / `Cosmos__Endpoint` disables
+  telemetry with no error anywhere (by design, so a Cosmos outage or missing config never breaks the
+  API). If telemetry documents aren't appearing, check in this order:
+
+  1. The endpoint setting is populated (§3).
+  2. The web app has a system-assigned identity and a **Cosmos DB Built-in Data Contributor** role
+     assignment (§2). A missing assignment produces HTTP 403 on every write.
+  3. The database and container exist with partition key `/timestamp` (§2). The backends no longer
+     create them.
+
+  A failed initialization always logs `Cosmos DB telemetry initialization failed; telemetry is
+  disabled` at warning level on startup. Reach it with
+  `az webapp log tail --name <app> --resource-group regex-tester`.
+- **Telemetry silently absent even though the setting is populated — a stale account key.**
+  *Historical: this failure mode no longer applies.* Key-based authentication was removed on
+  2026-08-30 in favour of managed identity (§2), so there is no key to go stale. Kept here because
+  it still applies to any deployment running a build from before that change.
+
+  It happened on 2026-08-30 and went unnoticed for five weeks: the Cosmos account's keys had been
+  rotated after the app settings were written, so every backend authenticated with a dead key and
+  got HTTP 401 on every call. Nothing surfaced it — `POST /api/regex` kept returning HTTP 200,
+  because telemetry swallows all errors by design.
+
+  A stale key looks identical to a correct one: same format, same 169-character length. On an older
+  build, compare the values rather than their shape:
+
+  ```powershell
+  $live = (az cosmosdb keys list --name regex-tester-cosmos --resource-group regex-tester `
+      --type connection-strings -o json | ConvertFrom-Json).connectionStrings[0].connectionString
+  $stored = (az webapp config appsettings list --name regex-tester-api-nodejs `
+      --resource-group regex-tester -o json | ConvertFrom-Json |
+      Where-Object { $_.name -eq 'COSMOS_CONNECTION_STRING' }).value
+  "match = $($live -eq $stored)"
+  ```
+
+  The durable fix is to deploy a build that uses managed identity, not to re-copy the key.
 
 ## 10. Cost note
 
-An `S1` App Service Plan (one plan, hosting all four backends as separate web apps) and a 400 RU/s
-Cosmos DB container are **not free tier** — expect a modest but real monthly cost. Cheaper options
-for a personal/demo deployment:
+Measured 2026-08-30 — **this deployment currently costs nothing**:
 
-- App Service: a `B1` (Basic) plan is cheaper than `S1` but has no Always On on some regions/tiers
-  and fewer deployment slots; a `F1` (Free) plan exists but cannot run four separate app instances
-  reliably and has a daily compute quota.
-- Cosmos DB: switch the container to **serverless** billing (pay-per-request instead of provisioned
-  RU/s) if traffic is low and bursty, which suits a demo/portfolio project better than a fixed
-  400 RU/s reservation.
+- **App Service**: both plans (`regex-tester-free-plan` and `ASP-regextester-8d56`) are **`F1`
+  (Free)**. The trade-off is real: F1 has a daily CPU quota, throttles shared cores, and **cannot
+  enable Always On**, so every app cold-starts after ~20 minutes idle (§9).
+- **Cosmos DB**: the account has free tier enabled, and the 400 RU/s container sits inside the
+  1000 RU/s free allowance with ~28.7 MB stored against a 25 GB allowance.
+
+If you outgrow this:
+
+- App Service: `B1` (Basic) is the cheapest tier that supports Always On, which is the single
+  biggest fix for perceived slowness.
+- Cosmos DB: stay on provisioned free tier for as long as the workload fits. **Do not** switch the
+  container to serverless to "save money" — serverless is not covered by the free-tier allowance, so
+  it would start charging for a workload that is currently free.
 
 ## See also
 

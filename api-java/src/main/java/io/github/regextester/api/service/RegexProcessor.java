@@ -12,7 +12,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import org.springframework.stereotype.Service;
 
 /**
  * Core regex matching logic backing {@code POST /api/regex}.
@@ -24,7 +23,6 @@ import org.springframework.stereotype.Service;
  * <p>Unlike api-python, no pattern translation is required: Java spells named groups
  * {@code (?<name>...)}, exactly as .NET and JavaScript do.
  */
-@Service
 public class RegexProcessor {
 
     public static final int REGEX_TIMEOUT_MS = 15_000;

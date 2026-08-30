@@ -1,12 +1,10 @@
 package io.github.regextester.api.service;
 
-import io.github.regextester.api.filter.MaxBodySizeFilter;
+import io.github.regextester.api.App;
 import io.github.regextester.api.model.Capabilities;
 import io.github.regextester.api.options.RegexOptions;
-import org.springframework.stereotype.Service;
 
 /** Builds the capability document for {@code GET /api/capabilities}. */
-@Service
 public class CapabilitiesService {
 
     /**
@@ -18,8 +16,8 @@ public class CapabilitiesService {
 
     public static final String ENGINE_NAME = "Java";
 
-    /** The HTTP request timeout, mirrored from {@code spring.mvc.async.request-timeout}. */
-    public static final int REQUEST_TIMEOUT_MS = 5_000;
+    /** The HTTP request timeout, mirrored from {@link App#REQUEST_TIMEOUT_MS}. */
+    public static final int REQUEST_TIMEOUT_MS = App.REQUEST_TIMEOUT_MS;
 
     public Capabilities get() {
         return new Capabilities(
@@ -37,7 +35,7 @@ public class CapabilitiesService {
                         1024,
                         RegexProcessor.REGEX_TIMEOUT_MS,
                         REQUEST_TIMEOUT_MS,
-                        MaxBodySizeFilter.MAX_REQUEST_BODY_BYTES),
+                        App.MAX_REQUEST_BODY_BYTES),
                 // "single": java.util.regex.Matcher only exposes the last capture of a repeated
                 // group. Only api-dotnet, via Group.Captures, reports "multi".
                 new Capabilities.Features(true, true, "single"),

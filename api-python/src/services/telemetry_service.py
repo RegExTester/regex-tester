@@ -1,7 +1,8 @@
 """Cosmos DB telemetry for api-python.
 
-Mirrors the .NET (`TelemetryService`) and Node.js (`telemetryService`) implementations: lazy
-client init, silently disabled when `COSMOS_CONNECTION_STRING` is empty, `/timestamp` partition
+Mirrors the .NET (`TelemetryService`) and Node.js (`telemetryService`) implementations: Entra ID
+authentication via `DefaultAzureCredential` with no account key anywhere, bounded synchronous
+client init at startup, silently disabled when `COSMOS_ENDPOINT` is empty, `/timestamp` partition
 key, and fire-and-forget so a Cosmos outage can never affect the `POST /api/regex` response.
 Because FastAPI's route handler is synchronous, the write itself is dispatched as a
 `BackgroundTasks` callable (see `routers/regex.py`) rather than awaited on the request path.
@@ -10,11 +11,13 @@ Because FastAPI's route handler is synchronous, the write itself is dispatched a
 from __future__ import annotations
 
 import logging
+import threading
 import uuid
 from datetime import datetime, timezone
 from typing import Any, Optional
 
-from azure.cosmos import CosmosClient, PartitionKey
+from azure.cosmos import CosmosClient
+from azure.identity import DefaultAzureCredential
 
 from .capabilities import ENGINE_KEY
 
@@ -23,33 +26,74 @@ logger = logging.getLogger(__name__)
 _cosmos_client: Optional[CosmosClient] = None
 _cosmos_container = None
 
+# Upper bound, in seconds, on Cosmos initialization. `init_cosmos` runs on the startup path, so an
+# unreachable endpoint would otherwise hang startup and turn a telemetry outage into a total outage.
+INIT_TIMEOUT_SECONDS = 10
 
-def init_cosmos(connection_string: str, database: str, container: str) -> None:
-    """Initialize the Cosmos client/database/container. No-op when `connection_string` is
-    empty. Never raises: a bad or unreachable connection string must not prevent the app
-    from starting, so any failure here is logged at warning level and telemetry stays
-    disabled for the lifetime of the process."""
+
+def _connect(endpoint: str, database: str, container: str) -> None:
+    """Establish the client, database and container. Never raises — a bad, unreachable or slow
+    endpoint, a missing role assignment or an unavailable credential must not prevent the app
+    from starting."""
     global _cosmos_client, _cosmos_container
-    if not connection_string or _cosmos_client is not None:
-        return
 
     try:
-        client = CosmosClient.from_connection_string(connection_string)
-        db = client.create_database_if_not_exists(id=database, offer_throughput=400)
-        # Partitioned on /timestamp, which is effectively unique per document: writes spread
-        # evenly and this matches containers created before telemetry was standardized. Cosmos
-        # cannot change an existing container's partition key and create_container_if_not_exists
-        # silently returns the existing one, so switching this path would require operators to
-        # delete and recreate the container. Do not change it.
-        _cosmos_container = db.create_container_if_not_exists(
-            id=container,
-            partition_key=PartitionKey(path="/timestamp"),
+        # Entra ID, never an account key: DefaultAzureCredential resolves the App Service managed
+        # identity in Azure and the developer's az login session locally. A rotated key silently
+        # disabled telemetry for five weeks in 2026-07; there is now no key.
+        client = CosmosClient(
+            endpoint,
+            credential=DefaultAzureCredential(),
+            connection_timeout=INIT_TIMEOUT_SECONDS,
+            read_timeout=INIT_TIMEOUT_SECONDS,
         )
+        cont = client.get_database_client(database).get_container_client(container)
+
+        # get_*_client only build client-side handles, so without this read the first token
+        # acquisition - and any 403 from a missing role assignment - would be deferred to the
+        # first write and lost in its except. One metadata round trip here proves the identity can
+        # reach the container, and is covered by the readMetadata action of Cosmos DB Built-in
+        # Data Contributor. It replaces the two create_*_if_not_exists calls, which that role
+        # deliberately cannot perform: creating a database or container is a control-plane
+        # operation. The container is provisioned by DEPLOYMENT.md section 2 and must already
+        # exist, partitioned on /timestamp.
+        cont.read(timeout=INIT_TIMEOUT_SECONDS)
+
+        # Published only once the round trip succeeded, so a partially initialized client is
+        # never visible to send_telemetry.
+        _cosmos_container = cont
         _cosmos_client = client
     except Exception:  # noqa: BLE001 - telemetry init must never crash startup
         logger.warning("Cosmos DB telemetry initialization failed; telemetry is disabled.", exc_info=True)
-        _cosmos_client = None
-        _cosmos_container = None
+
+
+def init_cosmos(endpoint: str, database: str, container: str) -> None:
+    """Initialize the Cosmos client/database/container. No-op when `endpoint` is empty.
+
+    Runs on the startup path, before the app serves any request, so the very first request is
+    recorded rather than silently dropped. Returns after at most `INIT_TIMEOUT_SECONDS` even if
+    Cosmos has not answered: the SDK's own timeout arguments overshoot the budget against a
+    blackholed endpoint (measured ~12 s for a 10 s budget), so the bound is enforced out here. A
+    connection that completes after the bound still publishes its client — it is perfectly usable,
+    it just missed the startup window.
+    """
+    if not endpoint or _cosmos_client is not None:
+        return
+
+    worker = threading.Thread(
+        target=_connect,
+        args=(endpoint, database, container),
+        name="telemetry-init",
+        daemon=True,
+    )
+    worker.start()
+    worker.join(INIT_TIMEOUT_SECONDS)
+
+    if worker.is_alive():
+        logger.warning(
+            "Cosmos DB telemetry initialization exceeded %s s; starting without it.",
+            INIT_TIMEOUT_SECONDS,
+        )
 
 
 def build_document(

@@ -136,10 +136,28 @@ The full contract-wide option flag table lives in [CLAUDE.md](../CLAUDE.md) and
 ## 7. Telemetry Integration
 
 `init_cosmos()` (in `services/telemetry_service.py`) is called once at import time in `main.py`
-with `COSMOS_CONNECTION_STRING`/`COSMOS_DATABASE`/`COSMOS_CONTAINER` (defaulting to
-`regex-tester-db`/`telemetry`). An empty connection string makes it a silent no-op; any other
-failure (bad/unreachable connection string) is caught inside `init_cosmos`'s own `try/except` and
-logged at warning level, so it can never prevent the app from starting.
+with `COSMOS_ENDPOINT`/`COSMOS_DATABASE`/`COSMOS_CONTAINER` (defaulting to
+`regex-tester-db`/`telemetry`) — on the startup path, before the app serves any request, so the very
+first `POST /api/regex` is recorded. An empty endpoint makes it a silent no-op; any other failure
+(bad/unreachable endpoint, missing role assignment, unavailable credential) is caught inside
+`_connect`'s own `try/except` and logged at warning level, so it can never prevent the app from
+starting.
+
+**Authentication is Entra ID, never a key.** The client is built as
+`CosmosClient(endpoint, credential=DefaultAzureCredential())`, resolving the App Service managed
+identity in Azure and the developer's `az login` session locally. The identity holds the Cosmos DB
+Built-in Data Contributor data-plane role, which grants no control-plane permission, so the database
+and container are **never created**: `get_database_client(...).get_container_client(...)` builds a
+handle and a single `cont.read()` verifies access. Without that read, token acquisition and any 403
+would be deferred to the first write and lost in its `except`. The container must already exist
+(DEPLOYMENT.md §2).
+
+Initialization is bounded at **10 s** (`INIT_TIMEOUT_SECONDS`): `_connect` runs on a short-lived
+daemon thread that `init_cosmos` joins with that timeout. The bound is enforced there rather than
+left to the SDK's `connection_timeout`/`read_timeout`/`timeout` arguments, which overshoot it —
+measured at ~12 s against a blackholed address for a 10 s budget. Those arguments are still passed,
+so an abandoned attempt also gives up rather than lingering. A connection completing after the bound
+still publishes its client.
 
 Per request, `routers/regex.py` builds the telemetry document via
 `telemetry_service.build_document(...)` and schedules the write with

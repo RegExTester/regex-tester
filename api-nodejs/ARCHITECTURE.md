@@ -115,10 +115,29 @@ The full contract-wide option flag table lives in [CLAUDE.md](../CLAUDE.md) and
 ## 7. Telemetry Integration
 
 `src/services/telemetryService.js` exports `initCosmos()` and `sendTelemetry()`. `initCosmos` is
-called once at startup in `index.js` with `COSMOS_CONNECTION_STRING`/`COSMOS_DATABASE`/`COSMOS_CONTAINER`
-(defaulting to `regex-tester-db`/`telemetry`), wrapped in `.catch(...)` so a bad or unreachable
-connection string only logs a warning and never blocks server startup; an empty connection string
-makes it a no-op (`cosmosClient` stays `null`).
+**awaited** at startup in `index.js`, before `app.listen(...)`, with
+`COSMOS_ENDPOINT`/`COSMOS_DATABASE`/`COSMOS_CONTAINER` (defaulting to
+`regex-tester-db`/`telemetry`), so the Cosmos client exists before the first request arrives.
+Previously the promise was left unawaited and the server began serving immediately, silently
+dropping the telemetry of every request that beat the handshake.
+
+**Authentication is Entra ID, never a key.** The client is built as
+`new CosmosClient({ endpoint, aadCredentials: new DefaultAzureCredential() })`, resolving the App
+Service managed identity in Azure and the developer's `az login` session locally. The identity holds
+the Cosmos DB Built-in Data Contributor data-plane role, which grants no control-plane permission,
+so the database and container are **never created**: `client.database(db).container(c)` builds a
+handle and a single `cont.read()` verifies access. Without that read, token acquisition and any 403
+would be deferred to the first write and lost in its catch. The container must already exist
+(DEPLOYMENT.md §2).
+
+`initCosmos` never rejects — its `try/catch` is internal, because a rejection escaping an awaited
+top-level `await` would abort the process on startup. A bad or unreachable endpoint only logs a
+warning; an empty one makes it a no-op (`cosmosClient` stays `null`).
+
+It also resolves after at most **10 s** (`INIT_TIMEOUT_MS`) via a `Promise.race` against a timer.
+The bound has to be enforced there because the SDK ignores `abortSignal` in its `RequestOptions` —
+measured against a blackholed address, it still ran to the OS connect timeout of ~21 s. A connection
+completing after the bound still publishes its client.
 
 Per request, `regexController.match` calls `telemetryService.sendTelemetry(req, model, outcome)`
 after computing `durationMs` via `process.hrtime.bigint()` — the call is never awaited, and

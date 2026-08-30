@@ -3,39 +3,36 @@ package io.github.regextester.api.service;
 import com.azure.cosmos.CosmosClient;
 import com.azure.cosmos.CosmosClientBuilder;
 import com.azure.cosmos.CosmosContainer;
-import com.azure.cosmos.CosmosDatabase;
-import com.azure.cosmos.models.CosmosContainerProperties;
-import com.azure.cosmos.models.ThroughputProperties;
-import jakarta.annotation.PostConstruct;
-import jakarta.annotation.PreDestroy;
+import com.azure.identity.DefaultAzureCredentialBuilder;
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Service;
 
 /**
  * Cosmos DB telemetry for api-java.
  *
- * <p>Mirrors the .NET, Node.js and Python implementations: silently disabled when
- * {@code COSMOS_CONNECTION_STRING} is empty, {@code /timestamp} partition key, the standardized
+ * <p>Mirrors the .NET, Node.js and Python implementations: Entra ID authentication via
+ * {@code DefaultAzureCredential} with no account key anywhere, silently disabled when
+ * {@code COSMOS_ENDPOINT} is empty, {@code /timestamp} partition key, the standardized
  * 12-field document, and strictly fire-and-forget so a Cosmos outage can never affect the
  * {@code POST /api/regex} response. api-dotnet once awaited its write, so an outage returned HTTP
  * 500 to users; do not reintroduce that here.
  *
  * <p>No client IP is ever collected — {@code host} is the Host header.
  */
-@Service
 public class TelemetryService {
 
     private static final Logger log = LoggerFactory.getLogger(TelemetryService.class);
 
-    private final String connectionString;
+    private final String endpoint;
     private final String databaseName;
     private final String containerName;
 
@@ -49,82 +46,74 @@ public class TelemetryService {
         return thread;
     });
 
+    /**
+     * Upper bound on Cosmos initialization. Init blocks the startup thread, so an unreachable
+     * endpoint would otherwise hang startup and turn a telemetry outage into a total outage.
+     */
+    private static final long INIT_TIMEOUT_MS = 10_000;
+
     private volatile CosmosClient client;
     private volatile CosmosContainer container;
 
-    public TelemetryService(
-            @Value("${COSMOS_CONNECTION_STRING:}") String connectionString,
-            @Value("${COSMOS_DATABASE:regex-tester-db}") String databaseName,
-            @Value("${COSMOS_CONTAINER:telemetry}") String containerName) {
-        this.connectionString = connectionString;
+    public TelemetryService(String endpoint, String databaseName, String containerName) {
+        this.endpoint = endpoint;
         this.databaseName = databaseName;
         this.containerName = containerName;
     }
 
     /**
-     * Initialize the Cosmos client on a background thread. No-op when the connection string is
-     * empty.
+     * Initialize the Cosmos client during startup. No-op when the endpoint is empty.
      *
-     * <p>Deliberately off the startup thread, matching api-nodejs's unawaited {@code initCosmos}:
-     * creating the database and container is a network round trip, and a bad or unreachable endpoint
-     * must never delay — let alone prevent — the app from starting. Any failure is logged at warning
-     * level and telemetry stays disabled for the lifetime of the process.
+     * <p>Blocks the startup thread until the client is ready, so the very first {@code
+     * POST /api/regex} after a restart is recorded rather than silently dropped — App Service
+     * restarts instances routinely, so a warm-up window is continuous data loss, not an edge case.
+     *
+     * <p>The work runs on the telemetry executor purely so {@link Future#get(long, TimeUnit)} can
+     * bound it: the Java Cosmos SDK offers no per-call timeout for these operations. On timeout the
+     * abandoned attempt is left to finish on its own; if it eventually succeeds it legitimately
+     * leaves a usable client behind. Any failure is logged at warning level and leaves telemetry
+     * disabled — a bad or unreachable endpoint, a missing role assignment or an unavailable
+     * credential must never prevent the app from starting.
      */
-    @PostConstruct
-    void init() {
-        if (connectionString == null || connectionString.isBlank()) {
+    public void init() {
+        if (endpoint == null || endpoint.isBlank()) {
             return;
         }
-        executor.execute(() -> {
-            try {
-                CosmosClient built = buildClient(connectionString);
-                built.createDatabaseIfNotExists(
-                        databaseName, ThroughputProperties.createManualThroughput(400));
-                CosmosDatabase database = built.getDatabase(databaseName);
-                // Partitioned on /timestamp, which is effectively unique per document: writes spread
-                // evenly and this matches containers created before telemetry was standardized.
-                // Cosmos cannot change an existing container's partition key and
-                // createContainerIfNotExists silently returns the existing one, so switching this
-                // path would require operators to delete and recreate the container. Do not change it.
-                database.createContainerIfNotExists(
-                        new CosmosContainerProperties(containerName, "/timestamp"));
-                this.container = database.getContainer(containerName);
-                this.client = built;
-            } catch (RuntimeException e) {
-                log.warn("Cosmos DB telemetry initialization failed; telemetry is disabled.", e);
-            }
-        });
-    }
+        Future<?> initTask = executor.submit(() -> {
+            // Entra ID, never an account key: DefaultAzureCredential resolves the App Service
+            // managed identity in Azure and the developer's az login session locally. A rotated
+            // key silently disabled telemetry for five weeks in 2026-07; there is now no key.
+            CosmosClient built = new CosmosClientBuilder()
+                    .endpoint(endpoint)
+                    .credential(new DefaultAzureCredentialBuilder().build())
+                    .buildClient();
+            CosmosContainer cont = built.getDatabase(databaseName).getContainer(containerName);
 
-    /**
-     * Parse an {@code AccountEndpoint=...;AccountKey=...;} connection string.
-     *
-     * <p>The Java Cosmos SDK, unlike the .NET, JavaScript and Python ones, has no
-     * connection-string factory on {@code CosmosClientBuilder}, so the same configuration value the
-     * other three backends consume verbatim has to be split here.
-     */
-    private static CosmosClient buildClient(String connectionString) {
-        String endpoint = null;
-        String key = null;
-        for (String part : connectionString.split(";")) {
-            int separator = part.indexOf('=');
-            if (separator < 0) {
-                continue;
-            }
-            String name = part.substring(0, separator).trim();
-            // Only split on the FIRST '=': a base64 account key routinely ends with padding '='.
-            String value = part.substring(separator + 1).trim();
-            if ("AccountEndpoint".equalsIgnoreCase(name)) {
-                endpoint = value;
-            } else if ("AccountKey".equalsIgnoreCase(name)) {
-                key = value;
-            }
+            // getDatabase/getContainer only build client-side handles, so without this read the
+            // first token acquisition — and any 403 from a missing role assignment — would be
+            // deferred to the first write and lost in its catch. One metadata round trip here
+            // proves the identity can reach the container, and is covered by the readMetadata
+            // action of Cosmos DB Built-in Data Contributor. It replaces the two
+            // createIfNotExists calls, which that role deliberately cannot perform: creating a
+            // database or container is a control-plane operation. The container is provisioned by
+            // DEPLOYMENT.md §2 and must already exist, partitioned on /timestamp.
+            cont.read();
+
+            this.container = cont;
+            this.client = built;
+        });
+
+        try {
+            initTask.get(INIT_TIMEOUT_MS, TimeUnit.MILLISECONDS);
+        } catch (TimeoutException e) {
+            log.warn("Cosmos DB telemetry initialization timed out after {} ms; telemetry is disabled.",
+                    INIT_TIMEOUT_MS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            log.warn("Cosmos DB telemetry initialization was interrupted; telemetry is disabled.");
+        } catch (Exception e) {
+            log.warn("Cosmos DB telemetry initialization failed; telemetry is disabled.", e);
         }
-        if (endpoint == null || key == null) {
-            throw new IllegalArgumentException(
-                    "COSMOS_CONNECTION_STRING must contain AccountEndpoint and AccountKey.");
-        }
-        return new CosmosClientBuilder().endpoint(endpoint).key(key).buildClient();
     }
 
     /**
@@ -182,8 +171,7 @@ public class TelemetryService {
         });
     }
 
-    @PreDestroy
-    void shutdown() {
+    public void shutdown() {
         executor.shutdownNow();
         CosmosClient open = client;
         if (open != null) {

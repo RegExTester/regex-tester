@@ -228,6 +228,22 @@ backends. They are contractual MUST rules, equal in force to the bullets above:
    environment, including Development. A development build MAY additionally permit localhost
    origins, but only by reflecting the specific requesting origin back in
    `Access-Control-Allow-Origin` — never by emitting a blanket `*`.
+4. **Telemetry initializes synchronously at startup.** A backend that implements the optional
+   usage-telemetry sink MUST establish its client **during startup, on the startup path, before it
+   accepts requests**. Initializing lazily on first use, or on a background thread that startup does
+   not wait for, silently loses the telemetry of every request that arrives before the client is
+   ready — which, on a platform that restarts instances routinely, is a continuous low-grade
+   data loss rather than a one-off.
+
+   That initialization MUST be bounded at **10 000 ms** and MUST NOT prevent the engine from
+   starting. On timeout or failure the backend logs a warning, leaves telemetry disabled for the
+   lifetime of the process, and starts normally. Telemetry is non-essential; an engine whose sink is
+   unreachable MUST serve every endpoint exactly as it would with telemetry switched off. Turning a
+   telemetry outage into a failed start would be strictly worse than the data loss it prevents.
+
+   Writes are the opposite of initialization: they MUST remain fire-and-forget, never awaited on the
+   request path, with every error swallowed, so a sink outage can never delay, alter or fail a
+   response.
 
 ## 5. Limits
 
@@ -271,16 +287,18 @@ too.
    `null`, HTTP 200 for regex errors/timeouts, HTTP 400 ProblemDetails for validation, HTTP 413
    ProblemDetails (before body parsing/field validation) when the body exceeds
    `maxRequestBodyBytes`, and the 5s timeout returning HTTP 200.
-6. Pass the language-agnostic conformance suite (`tests/contract/`, see TASK-06) run against the new
+6. Initialize telemetry synchronously at startup, bounded at 10 000 ms, never failing startup (see
+   §4, further clarification 4). Writes stay fire-and-forget.
+7. Pass the language-agnostic conformance suite (`tests/contract/`, see TASK-06) run against the new
    backend's `BASE_URL`.
-7. Add a `ui-vuejs` engine entry (`src/config.<engine>.js`, registered in `src/config.js`) and a
+8. Add a `ui-vuejs` engine entry (`src/config.<engine>.js`, registered in `src/config.js`) and a
    `VITE_API_<ENGINE>` environment variable in `.env` / `.env.production`.
-8. Add a deploy workflow under `.github/workflows/` modelled on an existing backend's workflow, and
+9. Add a deploy workflow under `.github/workflows/` modelled on an existing backend's workflow, and
    add the engine to the `contract-tests.yml` matrix so CI covers it.
-9. Add a design doc under `docs/design/` (e.g. `api-rust.md`) and an `ARCHITECTURE.md` in the
-   backend's own directory, mirroring the structure of [api-nodejs.md](api-nodejs.md) and
-   [api-nodejs/ARCHITECTURE.md](../../api-nodejs/ARCHITECTURE.md).
-10. Add the engine's column to the flag registry (§3) and the divergence table (§7).
+10. Add a design doc under `docs/design/` (e.g. `api-rust.md`) and an `ARCHITECTURE.md` in the
+    backend's own directory, mirroring the structure of [api-nodejs.md](api-nodejs.md) and
+    [api-nodejs/ARCHITECTURE.md](../../api-nodejs/ARCHITECTURE.md).
+11. Add the engine's column to the flag registry (§3) and the divergence table (§7).
 
 ## 7. Known engine divergences
 

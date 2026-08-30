@@ -29,7 +29,7 @@ identical results, so it doubles as a side-by-side comparison of the four regex 
 | `api-dotnet` | .NET 10.0 Web API | [api-dotnet/](api-dotnet/) | 5000 (5001 https) |
 | `api-nodejs` | Node.js 22+ / Express 5 | [api-nodejs/](api-nodejs/) | 5100 |
 | `api-python` | Python 3.13 / FastAPI | [api-python/](api-python/) | 5200 |
-| `api-java` | Java 21 / Spring Boot 3.4 | [api-java/](api-java/) | 5300 |
+| `api-java` | Java 21 / Javalin 6.7 | [api-java/](api-java/) | 5300 |
 | `ui-vuejs` | Vue 3 / Vite 6 SPA | [ui-vuejs/](ui-vuejs/) | 4000 |
 
 ## Quick start

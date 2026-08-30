@@ -50,3 +50,14 @@ node -e "console.log(Object.keys(JSON.parse(require('fs').readFileSync('docs/ope
 ```
 
 Remember to stop each backend afterwards so its port is free for the next one.
+
+## Known generator quirk: api-java `maxLength`
+
+In `api-java.v1.json` the `Input` field limits are emitted as JSON **strings** (`"512"`, `"1024"`)
+rather than numbers, because javalin-openapi's `@OpenApiStringValidation` annotation takes a
+`String` and the annotation processor passes it through verbatim. The other three documents emit
+numbers.
+
+This is cosmetic and deliberate: stating the limit imprecisely beats omitting it, and
+`GET /api/capabilities` reports `limits` with correct numeric types on every engine. Do not
+hand-edit the file to "fix" it — these documents are regenerated, not maintained.

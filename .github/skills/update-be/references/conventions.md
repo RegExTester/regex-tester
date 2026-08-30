@@ -59,21 +59,35 @@ Divergences must be **documented**, not accidental.
 ## Telemetry
 
 - One Cosmos database `regex-tester-db`, one container `telemetry`, partitioned on **`/timestamp`**.
-  Do not "optimize" this to `/engineKey`: `CreateContainerIfNotExists` **silently returns an existing
-  container and does not change its partition key**, so any partition-key change forces operators to
-  delete and recreate the container and lose all history. Treat it as effectively immutable.
-  `engineKey` is a plain field, so per-engine queries still work (cross-partition).
+  Do not "optimize" this to `/engineKey`: Cosmos cannot change a container's partition key, so any
+  change forces operators to delete and recreate the container and lose all history. Treat it as
+  effectively immutable. `engineKey` is a plain field, so per-engine queries still work
+  (cross-partition).
+- **Authentication is Entra ID via `DefaultAzureCredential`. There is no account key anywhere.**
+  Config is an endpoint URI (`COSMOS_ENDPOINT`, or `Cosmos:Endpoint` on .NET), which is not a
+  secret. Never reintroduce a connection string: a rotated key silently disabled telemetry on all
+  four backends for five weeks in 2026-07.
+- **Backends never create the database or container.** The Cosmos DB Built-in Data Contributor
+  data-plane role grants `readMetadata` and item/container *data* actions only — creating either is
+  a control-plane operation, so `CreateContainerIfNotExists` and friends fail with HTTP 403 under an
+  Entra token. Resolve a handle and do one metadata read to validate access at startup. The
+  container is provisioned out of band (DEPLOYMENT.md §2).
 - **api-dotnet passes the partition key value explicitly** (`new PartitionKey(item.timestamp)`). It must
   always match the container path. A mismatch fails every write with `PartitionKeyMismatch` — and because
   telemetry swallows all errors, it fails completely silently.
 - Standardized 12-field document, identical camelCase on all four: `id`, `engineKey`, `timestamp`,
   `host`, `userAgent`, `pattern`, `text`, `replace`, `options` (integer), `durationMs`, `matchCount`, `error`.
-- **Strictly fire-and-forget.** Never awaited on the request path; every error swallowed. .NET uses
+- **Strictly fire-and-forget writes.** Never awaited on the request path; every error swallowed. .NET uses
   `Task.Run` with `CancellationToken.None`, Node leaves the promise unawaited with `.catch()`, Python uses
   FastAPI `BackgroundTasks`, Java queues onto a single daemon `ExecutorService` thread. api-dotnet used to
   await it, so a Cosmos outage returned HTTP 500 to users — do not regress this.
-- An empty connection string disables telemetry silently. A bad or unreachable one is caught at init so
-  **no backend ever fails to start**.
+- **Initialization is the opposite: synchronous, on the startup path, bounded at 10 s.** The first
+  request after every restart must be recorded. Enforce the bound *outside* the SDK — .NET's
+  `CancellationToken` (~37 s), Node's `abortSignal` (ignored) and Python's timeout kwargs (~12 s)
+  were all measured overshooting a 10 s budget against a blackholed address.
+- An empty endpoint setting disables telemetry silently. A bad or unreachable one, a missing role
+  assignment or an unavailable credential is caught at init so **no backend ever fails to start**.
+- Do not collect client IPs. `host` is the Host header.
 - Do not collect client IPs. `host` is the Host header.
 
 ## Frontend: carried bits

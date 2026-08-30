@@ -1,2 +1,3 @@
 # Claude Code — local-only settings (machine-specific permissions, not shared)
 .claude/settings.local.json
+reports/
