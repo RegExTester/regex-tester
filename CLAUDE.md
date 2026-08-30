@@ -215,7 +215,7 @@ with `str` patterns at all, and the latter only writes to server stdout. See
 - **api-python**: Azure App Service (app `regex-tester-api-python`, host `regex-tester-api-python-c9apa4ekfta6hac6.centralus-01.azurewebsites.net`)
 - **api-java**: Azure App Service (app `regex-tester-api-java`, host `regex-tester-api-java-addef8dcgjbqa6bc.centralus-01.azurewebsites.net`)
 - **Frontend**: GitHub Pages (`https://regextester.github.io/`)
-- **Telemetry**: Azure Cosmos DB (all four backends, optional — disabled when the endpoint setting is empty). Authenticated with Entra ID via `DefaultAzureCredential` and a system-assigned managed identity; there is no account key or connection string anywhere.
+- **Telemetry**: Azure Cosmos DB (all four backends, optional — disabled when the endpoint setting is empty). Authenticated with Entra ID and a system-assigned managed identity; there is no account key or connection string anywhere. api-dotnet/api-python/api-java use `DefaultAzureCredential`; api-nodejs uses the managed identity endpoint + Cosmos REST API over `fetch` (no SDK in production — it was 95% of its installed files).
 
 ### Testing
 

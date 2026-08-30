@@ -200,12 +200,16 @@ az cosmosdb sql role assignment list --account-name regex-tester-cosmos \
 > deploying to /home/site/wwwroot" appears in the log) but the optimizer recreates the tarball
 > immediately afterwards.
 >
-> The durable fix is to shrink `node_modules`, since the extraction cost scales with it.
-> `@azure/cosmos` plus `@azure/identity` account for **12,355 of the 13,046 files (95%) and 46 of the
-> 60 MB (77%)**; replacing them with direct REST calls against the Cosmos data plane and the App
-> Service managed-identity endpoint would leave ~691 files / 14 MB. Nothing can simply be moved to
-> `devDependencies` — all six production packages are imported at runtime and the deploy installs
-> with `npm ci --omit=dev`.
+> The durable fix is to shrink `node_modules`, since the extraction cost scales with it. That was
+> done on 2026-08-30: `@azure/cosmos` and `@azure/identity` were **12,355 of the 13,046 files (95%)
+> and 46 of the 60 MB (77%)**. api-nodejs now talks to the Cosmos data plane over its REST API and
+> gets its token from the App Service managed identity endpoint, both with plain `fetch`, taking the
+> deployed tree to **674 files / 13.7 MB**. `@azure/identity` remains as a **devDependency** for the
+> local `az login` fallback only, dynamically imported so its absence in production is never reached.
+>
+> Note that nothing else can move to `devDependencies`: the remaining four packages (`express`,
+> `cors`, `js-yaml`, `swagger-ui-express`) are all imported at runtime, and `/scalar/v1` is a
+> contract MUST.
 >
 > **Nothing in CI sets this for you.** It is a one-time provisioning step you must perform here, and
 > re-check whenever the web app is recreated. Verify it with:

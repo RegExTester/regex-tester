@@ -148,10 +148,13 @@ an intentional trade so the partition key stays unchanged and no container ever 
 See [DEPLOYMENT.md](DEPLOYMENT.md).
 
 **Authentication is Entra ID, never an account key.** Each web app has a system-assigned managed
-identity holding the Cosmos DB Built-in Data Contributor data-plane role, and each backend builds
-its client with `DefaultAzureCredential` — which also resolves a developer's `az login` session
-locally. No secret exists in any app setting. A rotated account key silently disabled telemetry for
-five weeks in 2026-07; removing the key removes that failure mode entirely.
+identity holding the Cosmos DB Built-in Data Contributor data-plane role. api-dotnet, api-python and
+api-java build their client with `DefaultAzureCredential`; api-nodejs calls the App Service managed
+identity endpoint and the Cosmos REST API directly with `fetch`, because the two `@azure/*` packages
+were 95% of its installed files and App Service re-extracts `node_modules` on every cold start (see
+[api-nodejs/ARCHITECTURE.md](api-nodejs/ARCHITECTURE.md) §7). Either way a developer's `az login`
+session works locally. No secret exists in any app setting. A rotated account key silently disabled
+telemetry for five weeks in 2026-07; removing the key removes that failure mode entirely.
 
 That role deliberately grants no permission to create databases or containers, so **the backends
 never create them** — they resolve a container handle and verify access with a single metadata read

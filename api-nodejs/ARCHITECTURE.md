@@ -13,7 +13,7 @@ native `RegExp` as its regex engine.
 - **Runtime**: Node.js `>=22.0.0` (ES modules, per `package.json` `engines`)
 - **Framework**: Express `5.1.0`
 - **API docs**: `swagger-ui-express` `5.0.1` + a custom JSDoc `@openapi` parser (`js-yaml` `4.1.1`)
-- **Telemetry**: `@azure/cosmos` `4.9.2`
+- **Telemetry**: Cosmos DB REST API over `fetch` — no SDK in the deployed package (§7)
 - **Other dependencies**: `cors` `2.8.5`
 
 ## 2. Directory Layout
@@ -121,27 +121,46 @@ The full contract-wide option flag table lives in [CLAUDE.md](../CLAUDE.md) and
 Previously the promise was left unawaited and the server began serving immediately, silently
 dropping the telemetry of every request that beat the handshake.
 
-**Authentication is Entra ID, never a key.** The client is built as
-`new CosmosClient({ endpoint, aadCredentials: new DefaultAzureCredential() })`, resolving the App
-Service managed identity in Azure and the developer's `az login` session locally. The identity holds
-the Cosmos DB Built-in Data Contributor data-plane role, which grants no control-plane permission,
-so the database and container are **never created**: `client.database(db).container(c)` builds a
-handle and a single `cont.read()` verifies access. Without that read, token acquisition and any 403
-would be deferred to the first write and lost in its catch. The container must already exist
-(DEPLOYMENT.md §2).
+**Authentication is Entra ID, never a key, and there is no Azure SDK in production.** Both the
+token and the Cosmos write are plain `fetch` calls:
+
+- **In Azure**, the token comes from the App Service managed identity endpoint — a `GET` to
+  `IDENTITY_ENDPOINT` carrying the `X-IDENTITY-HEADER` that proves the caller is inside the
+  container. Tokens are cached and refreshed 5 minutes before expiry, and concurrent callers share
+  one in-flight request so a burst of writes cannot stampede the token service.
+- **Locally**, `@azure/identity`'s `DefaultAzureCredential` resolves the developer's `az login`
+  session. It is a **devDependency**, `import()`ed dynamically, and absent from the deployed package
+  (installed with `npm ci --omit=dev`) — which is safe precisely because Azure always provides the
+  managed identity endpoint. If neither is available the dynamic import fails and telemetry is
+  disabled with an actionable message; the app still starts and serves.
+
+Dropping `@azure/cosmos` and `@azure/identity` from production took the installed tree from **13,046
+files / 60 MB to 674 files / 13.7 MB**. That matters because App Service re-extracts `node_modules`
+on every cold start (DEPLOYMENT.md §3).
+
+The data-plane calls use the RBAC scheme `type=aad&ver=1.0&sig=<token>`, URL-encoded as a whole —
+Cosmos decodes the header before parsing it, so an unencoded `&` splits it and yields 401. Unlike
+the SDK, which reads the partition key out of the document, REST requires it explicitly in
+`x-ms-documentdb-partitionkey` as a JSON array, or the write fails with a partition key mismatch.
+
+The identity holds the Cosmos DB Built-in Data Contributor data-plane role, which grants no
+control-plane permission, so the database and container are **never created**: a single
+`GET dbs/{db}/colls/{container}` verifies access at startup. Without that read, token acquisition
+and any 403 would be deferred to the first write and lost in its catch. The container must already
+exist (DEPLOYMENT.md §2).
 
 `initCosmos` never rejects — its `try/catch` is internal, because a rejection escaping an awaited
 top-level `await` would abort the process on startup. A bad or unreachable endpoint only logs a
-warning; an empty one makes it a no-op (`cosmosClient` stays `null`).
+warning; an empty one makes it a no-op (`cosmos` stays `null`).
 
 It also resolves after at most **10 s** (`INIT_TIMEOUT_MS`) via a `Promise.race` against a timer.
-The bound has to be enforced there because the SDK ignores `abortSignal` in its `RequestOptions` —
-measured against a blackholed address, it still ran to the OS connect timeout of ~21 s. A connection
-completing after the bound still publishes its client.
+Each individual call additionally carries its own `AbortSignal.timeout(5 s)`, which `fetch` honours
+— unlike the old SDK, which ignored `abortSignal` in its `RequestOptions` and ran to the OS connect
+timeout of ~21 s against a blackholed address.
 
 Per request, `regexController.match` calls `telemetryService.sendTelemetry(req, model, outcome)`
 after computing `durationMs` via `process.hrtime.bigint()` — the call is never awaited, and
-`sendTelemetry` itself leaves its `cosmosContainer.items.create(item)` promise unawaited with a
+`sendTelemetry` itself leaves its Cosmos `POST .../docs` promise unawaited with a
 `.catch(...)` that only logs a warning, so a Cosmos outage can never affect the response already
 sent by `res.json(result)` on the line below.
 
