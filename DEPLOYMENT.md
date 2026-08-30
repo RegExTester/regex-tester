@@ -149,8 +149,6 @@ az cosmosdb sql role assignment list --account-name regex-tester-cosmos \
 | api-nodejs | `COSMOS_DATABASE` | `regex-tester-db` | defaults to this value if unset |
 | api-nodejs | `COSMOS_CONTAINER` | `telemetry` | defaults to this value if unset |
 | api-nodejs | `PORT` | *(leave unset)* | App Service injects its own `PORT`; code defaults to 5100 only for local dev |
-| api-nodejs | `SCM_DO_BUILD_DURING_DEPLOYMENT` | `false` | **required** — see cold-start warning below |
-| api-nodejs | `ENABLE_ORYX_BUILD` | `false` | **required** — see cold-start warning below |
 | api-python | `COSMOS_ENDPOINT` | `https://regex-tester-cosmos.documents.azure.com:443/` | |
 | api-python | `COSMOS_DATABASE` | `regex-tester-db` | |
 | api-python | `COSMOS_CONTAINER` | `telemetry` | |
@@ -171,22 +169,43 @@ az cosmosdb sql role assignment list --account-name regex-tester-cosmos \
 > origin. If you deploy without setting `ENVIRONMENT=production`, the deployed instance keeps
 > reflecting localhost origins in production.
 
-> **api-nodejs cold-start warning.** `deploy-api-nodejs.yml` already runs `npm ci --omit=dev`, so the
-> uploaded package contains a complete `node_modules`. If Oryx is left enabled it *rebuilds* anyway
-> and repacks `node_modules` into `node_modules.tar.gz`; the startup script App Service then
-> generates begins with
+> **api-nodejs cold-start warning (open issue).** Kudu's OneDeploy pipeline runs a
+> `NodeProjectOptimizer` step that repacks `node_modules` into `node_modules.tar.gz`, visible in the
+> deployment log as:
+>
+> ```
+> Running build. Project type: OneDeploy
+> NodeProjectOptimizer Initialized ...
+> Zipping node_modules...
+> ```
+>
+> The startup script App Service then generates begins with
 >
 > ```sh
 > rm -fr /node_modules && mkdir -p /node_modules && tar -xzf node_modules.tar.gz -C /node_modules
 > ```
 >
-> which extracts ~13,000 files **on every cold start**, before Node runs at all. Measured on the F1
-> plan: **73 s, 140 s, 74 s** — and on 2026-08-30 one start exceeded the 230 s startup-probe limit,
-> so App Service stopped the site and left it down for 67 minutes.
+> so ~13,000 files are extracted **on every cold start**, before Node runs at all. Measured on the F1
+> plan: **73 s, 140 s, 74 s** before a clean redeploy and **36 s, 132 s, 66 s** after. On 2026-08-30
+> one start exceeded the 230 s startup-probe limit, so App Service stopped the site and left it down
+> for 67 minutes. Node's own imports account for only ~1 s of this.
 >
-> The two settings above disable that. They only take effect once a deployment has removed the stale
-> `node_modules.tar.gz` and `oryx-manifest.toml` from `wwwroot` — the generated script keys off those
-> files being present — which is why the deploy step passes `clean: true`.
+> The optimizer's intent is a reasonable trade — extract once, then read `node_modules` from local
+> disk instead of the Azure Files share — but it is a bad one here, because `node_modules` is 13,046
+> files / 60 MB and F1 throttles CPU.
+>
+> **`SCM_DO_BUILD_DURING_DEPLOYMENT=false` and `ENABLE_ORYX_BUILD=false` do NOT disable it** — that
+> was tried on 2026-08-30 and the tarball was regenerated mid-deploy anyway. Those control Oryx; this
+> step is Kudu's and runs regardless. Nor does `clean: true` alone: it does wipe `wwwroot` ("Clean
+> deploying to /home/site/wwwroot" appears in the log) but the optimizer recreates the tarball
+> immediately afterwards.
+>
+> The durable fix is to shrink `node_modules`, since the extraction cost scales with it.
+> `@azure/cosmos` plus `@azure/identity` account for **12,355 of the 13,046 files (95%) and 46 of the
+> 60 MB (77%)**; replacing them with direct REST calls against the Cosmos data plane and the App
+> Service managed-identity endpoint would leave ~691 files / 14 MB. Nothing can simply be moved to
+> `devDependencies` — all six production packages are imported at runtime and the deploy installs
+> with `npm ci --omit=dev`.
 >
 > **Nothing in CI sets this for you.** It is a one-time provisioning step you must perform here, and
 > re-check whenever the web app is recreated. Verify it with:

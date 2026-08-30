@@ -50,11 +50,10 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      # `clean: true` matters here: the app ran for months with a leftover node_modules.tar.gz and
-      # oryx-manifest.toml in wwwroot, which made the generated startup script `tar -xzf` 13k files
-      # on EVERY cold start (measured 73-140 s, and once past the 230 s startup-probe limit, which
-      # stopped the site for 67 min). Oryx is disabled via app settings — see DEPLOYMENT.md §5 —
-      # but a stale tarball would keep that code path alive, so the target directory is wiped.
+      # `clean: true` keeps wwwroot from accumulating cruft across deploys (it was carrying a stale
+      # _del_node_modules tree). It does NOT fix the cold start: Kudu's OneDeploy NodeProjectOptimizer
+      # repacks node_modules into node_modules.tar.gz after the clean, and the generated startup
+      # script then extracts ~13k files on every cold start. See DEPLOYMENT.md §3.
       - name: Deploy to Azure App Service
         uses: azure/webapps-deploy@v3
         with:
