@@ -149,6 +149,8 @@ az cosmosdb sql role assignment list --account-name regex-tester-cosmos \
 | api-nodejs | `COSMOS_DATABASE` | `regex-tester-db` | defaults to this value if unset |
 | api-nodejs | `COSMOS_CONTAINER` | `telemetry` | defaults to this value if unset |
 | api-nodejs | `PORT` | *(leave unset)* | App Service injects its own `PORT`; code defaults to 5100 only for local dev |
+| api-nodejs | `SCM_DO_BUILD_DURING_DEPLOYMENT` | `false` | **required** — see cold-start warning below |
+| api-nodejs | `ENABLE_ORYX_BUILD` | `false` | **required** — see cold-start warning below |
 | api-python | `COSMOS_ENDPOINT` | `https://regex-tester-cosmos.documents.azure.com:443/` | |
 | api-python | `COSMOS_DATABASE` | `regex-tester-db` | |
 | api-python | `COSMOS_CONTAINER` | `telemetry` | |
@@ -168,6 +170,23 @@ az cosmosdb sql role assignment list --account-name regex-tester-cosmos \
 > when the setting is absent. In development mode they open CORS to any `http(s)://localhost[:port]`
 > origin. If you deploy without setting `ENVIRONMENT=production`, the deployed instance keeps
 > reflecting localhost origins in production.
+
+> **api-nodejs cold-start warning.** `deploy-api-nodejs.yml` already runs `npm ci --omit=dev`, so the
+> uploaded package contains a complete `node_modules`. If Oryx is left enabled it *rebuilds* anyway
+> and repacks `node_modules` into `node_modules.tar.gz`; the startup script App Service then
+> generates begins with
+>
+> ```sh
+> rm -fr /node_modules && mkdir -p /node_modules && tar -xzf node_modules.tar.gz -C /node_modules
+> ```
+>
+> which extracts ~13,000 files **on every cold start**, before Node runs at all. Measured on the F1
+> plan: **73 s, 140 s, 74 s** — and on 2026-08-30 one start exceeded the 230 s startup-probe limit,
+> so App Service stopped the site and left it down for 67 minutes.
+>
+> The two settings above disable that. They only take effect once a deployment has removed the stale
+> `node_modules.tar.gz` and `oryx-manifest.toml` from `wwwroot` — the generated script keys off those
+> files being present — which is why the deploy step passes `clean: true`.
 >
 > **Nothing in CI sets this for you.** It is a one-time provisioning step you must perform here, and
 > re-check whenever the web app is recreated. Verify it with:

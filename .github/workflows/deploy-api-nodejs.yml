@@ -50,8 +50,14 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
+      # `clean: true` matters here: the app ran for months with a leftover node_modules.tar.gz and
+      # oryx-manifest.toml in wwwroot, which made the generated startup script `tar -xzf` 13k files
+      # on EVERY cold start (measured 73-140 s, and once past the 230 s startup-probe limit, which
+      # stopped the site for 67 min). Oryx is disabled via app settings — see DEPLOYMENT.md §5 —
+      # but a stale tarball would keep that code path alive, so the target directory is wiped.
       - name: Deploy to Azure App Service
         uses: azure/webapps-deploy@v3
         with:
           app-name: ${{ env.AZURE_WEBAPP_NAME }}
           package: deploy
+          clean: true
